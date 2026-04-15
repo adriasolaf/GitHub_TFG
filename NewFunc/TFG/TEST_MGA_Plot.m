@@ -1,25 +1,32 @@
 %% Test script: compute and plot a simple MGA trajectory
 
-% MGA Sequence
-planets = {'Earth', 'Jupiter', 'Jupiter', 'Saturn'}; jd2k0 = -8169;
+% MGA Sequence Galileo (E-V-E-E-J), launch Oct 18 1989
+planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
+jd2k0 = -3727; % Oct 18, 1989
 
-N=2; M=3;
+N = 1; M = 2; % E-E resonance: 1 spacecraft rev in 2 Earth periods (730 days)
 
-tofs = [688,11.86*365.25636*M,5*778]; % EJS
+mu = GetBodyProps('Sun');
+body = 'Earth';
+jd_earth1 = jd2k0 + 115 + 301;
+[sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd_earth1);
+T_p = 2*pi*sqrt(sma_planet^3 / mu); % Earth orbital period [s]
+
+tofs = [115, 301, T_p*M/86400, 1094]; % E->V, V->E1, E1->E2 (VILM), E2->J
+
 
 % Get planet strings
 seq = Planets2Seq(planets);
 lPlanet = length(planets);
 
 % Basic parameters
-mu = GetBodyProps('Sun'); % Standard gravitational parameter, Sun [km3/s2]
 AU = 1.49597871E8; % Astronomical Unit (AU) [km]
 n = 100; % Orbit resolution
 
 %% Compute Lambert MGA
 
 % Multi-Gravity Assist
-[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, orbita_res ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M );
+[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, orbit_res ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M );
 
 % Initial/Final Delta-V
 dvd = norm(vd(1,:) - v(1,:)); % Departure DeltaV
@@ -106,14 +113,14 @@ sh = plot3(0,0,0,'k-','LineWidth',0.5); % Plot spacecraft marker
 for k=1:length(orbS) % Plot spacecraft orbit
     if is_vilm(k)
         % Plot two arcs + DSM point
-        % Arc 1 (pre-DSM) 
-        trj1 = orbita_res.bdsm' / AU;
+        % Arc 1 (pre-DSM)
+        trj1 = orbit_res.bdsm' / AU;
         plot3(trj1(1,:), trj1(2,:), trj1(3,:), 'k-', 'LineWidth', 0.5);
         % Arc 2 (post-DSM)
-        trj2 = orbita_res.adsm' / AU;
+        trj2 = orbit_res.adsm' / AU;
         plot3(trj2(1,:), trj2(2,:), trj2(3,:), 'k-', 'LineWidth', 0.5);
         % DSM point
-        dsm_h = plot3(orbita_res.rdsm(1)/AU, orbita_res.rdsm(2)/AU, orbita_res.rdsm(3)/AU, ...
+        dsm_h = plot3(orbit_res.rdsm(1)/AU, orbit_res.rdsm(2)/AU, orbit_res.rdsm(3)/AU, ...
                        'rx','LineWidth',1,'MarkerSize',7);
     else
         trj = [orbS{k}(:,1),orbS{k}(:,2),orbS{k}(:,3)]'/AU; % Trajectory
@@ -146,3 +153,5 @@ ph_unique = ph_unique(1:n_unique);
 planets_unique = planets_unique(1:n_unique);
 
 legend([oh, ph_unique{:}, sh, dsm_h], 'Sun', planets_unique{:}, 'Spacecraft', 'DSM', 'Location', 'NorthEastOutside');
+
+
