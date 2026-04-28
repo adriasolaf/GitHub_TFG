@@ -1,0 +1,64 @@
+
+body = 'Earth';
+jd0 = -3281;            
+N = 1; M = 2;          
+apsis_flag = 1;        
+res_flag = 2;    
+
+mu_sun = GetBodyProps('Sun');
+[mu_planet, vmr] = GetBodyProps(body);
+vmr_safety = 1.05 * vmr;
+
+[sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd0);
+T_p = 2*pi*sqrt(sma_planet^3 / mu_sun);
+
+
+% Vectors V_inf d'entrada (GA1) i requerit a la sortida (GA2)
+vinfi = [-0.5958, -8.6238, 0]; 
+vinfo = [-8.7906, 0.679, 0]; 
+
+vmag_fixa = 7.5; % km/s
+
+% Grid
+N_theta = 40; 
+N_phi = 40;
+
+theta_vec = linspace(0, 2*pi, N_theta);
+phi_vec = linspace(-pi/2, pi/2, N_phi);
+[THETA, PHI] = meshgrid(theta_vec, phi_vec);
+
+DV_MAP = inf(size(THETA));
+
+search_nu = @(f, a, b) scan_and_refine_1d(f, a, b, 500, 60);
+
+for i = 1:numel(THETA)
+    th = THETA(i);
+    ph = PHI(i);
+    
+    vinf_out_cand = vmag_fixa * [cos(ph)*cos(th), cos(ph)*sin(th), sin(ph)];
+    
+    % Avaluem la funció de cost
+    dV_total = objective_dV_total(vinf_out_cand, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, false);
+    
+    DV_MAP(i) = dV_total;
+   
+end
+
+figure('Name', 'Topologia V_inf', 'Color', 'w', 'Position', [100, 100, 800, 600]);
+
+limit_visualitzacio = 15; 
+limit_minim = 3;
+DV_MAP_plot = min(DV_MAP, limit_visualitzacio);
+DV_MAP_plot = max(DV_MAP_plot, limit_minim);
+
+contourf(rad2deg(THETA), rad2deg(PHI), DV_MAP_plot, 40, 'LineColor', 'none');
+colormap(jet); 
+clim([limit_minim, limit_visualitzacio]);
+
+cb = colorbar;
+ylabel(cb, '\DeltaV Total (km/s)', 'FontWeight', 'bold');
+
+xlabel('Azimut \theta (graus)', 'FontWeight', 'bold');
+ylabel('Elevació \phi (graus)', 'FontWeight', 'bold');
+title(sprintf('Topologia de l''espai de cerca per V_{inf} = %.1f km/s', vmag_fixa));
+grid on;
