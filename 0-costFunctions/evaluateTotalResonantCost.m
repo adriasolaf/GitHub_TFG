@@ -1,6 +1,6 @@
-function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1_out, rp2_out] = objective_dV_total(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, full_output_flag)
+function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1_out, rp2_out] = evaluateTotalResonantCost(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, full_output_flag)
 %   Evaluates the total VILM Delta-V cost (dV_GA1 + dV_DSM + dV_GA2) for a
-%   given outgoing v-infinity vector. Calls solve_best_DSM to
+%   given outgoing v-infinity vector. Calls findOptimalDSMParameters to
 %   find the optimal DSM, then computes the gravity assist costs.
 %
 % Inputs:
@@ -40,8 +40,8 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 %   [-] n/a
 %
 % See also:
-%   solve_best_DSM, build_RessOrbDSM, GA_PGA2_Rp, GA_PGA2_Vinfo,
-%   OptimitzationVILM
+%   findOptimalDSMParameters, computeSingleDSMTransferCost, GA_PGA2_Rp, GA_PGA2_Vinfo,
+%   optimizeOutgoingVInfinityVILM
 %
 % Adria Sola Foixench
 % April 2026
@@ -68,7 +68,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
     end
 
     % 1. DSM cost
-    [dV_DSM, ~, ~, ~, ~, r_m_sol, v_m_minus_sol, v_m_plus_sol, vinf_in_sol, va_sol] = solve_best_DSM(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, true);
+    [dV_DSM, ~, ~, ~, ~, r_m_sol, v_m_minus_sol, v_m_plus_sol, vinf_in_sol, va_sol] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, true);
 
     if isnan(dV_DSM) || isinf(dV_DSM)
         dV_DSM = NaN;

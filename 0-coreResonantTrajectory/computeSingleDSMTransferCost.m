@@ -1,7 +1,7 @@
-function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = build_RessOrbDSM(nu_DSM, revs_before, lw, lp, N, apsis_flag, mu_sun, full_output_flag, orb_init, planets_state)
+function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_DSM, revs_before, lw, lp, N, apsis_flag, mu_sun, full_output_flag, orb_init, planets_state)
 %   Constructs a single resonant orbit + DSM transfer for a specified
 %   set of inputs. Given a DSM true anomaly, a revolution split, and a Lambert 
-%   branch (lw, lp), it validates the geometry via checkValidNu, solves a single 
+%   branch (lw, lp), it validates the geometry via computeDSMStateAndTiming, solves a single 
 %   Lambert arc to the arrival, and returns the resulting DSM Delta-V.
 %
 % Inputs:
@@ -30,23 +30,18 @@ function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = build_RessOrbDSM(nu_D
 %   Spacecraft Trajectory Design, Demyan V. Lantukh
 %
 % See also:
-%   checkValidNu, solve_best_DSM, Lambert, GetBodyICF
+%   computeDSMStateAndTiming, findOptimalDSMParameters, Lambert, GetBodyICF
 %
 % Adria Sola Foixench
 % April 2026
 
     % Initialize outputs
-    dV_DSM = Inf;
-    r_m = [NaN NaN NaN];
-    v_m_minus = [NaN NaN NaN];
-    v_m_plus = [NaN NaN NaN];
-    vinf_in = [NaN NaN NaN];
-    va = [NaN NaN NaN];
+    dV_DSM = Inf; r_m = [NaN NaN NaN]; v_m_minus = [NaN NaN NaN]; v_m_plus = [NaN NaN NaN]; vinf_in = [NaN NaN NaN]; va = [NaN NaN NaN];
 
     % Validate geometry and get DSM state
-    [valid, r_m_cv, v_m_minus_cv, tof_lambert, ~] = checkValidNu(nu_DSM, revs_before, N, apsis_flag, mu_sun, orb_init, planets_state);
+    [flag_Res, r_m_cv, v_m_minus_cv, tof_lambert, ~] = computeDSMStateAndTiming(nu_DSM, revs_before, apsis_flag, mu_sun, orb_init, planets_state);
 
-    if ~valid
+    if flag_Res ~= 0 
         return;
     end
 

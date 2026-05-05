@@ -1,4 +1,4 @@
-function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_vinf_in, best_va, best_vinf_o_n, orbit_res, rp_GA1, rp_GA2] = OptimitzationVILM(body, jd0, vinfi, vinfo, N, M, apsis_flag, mu_sun, res_flag)
+function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_vinf_in, best_va, best_vinf_o_n, vilm_arc, rp_GA1, rp_GA2] = optimizeOutgoingVInfinityVILM(body, jd0, vinfi, vinfo, N, M, apsis_flag, mu_sun, res_flag)
 %   Optimizes the outgoing v-infinity vector at a planetary flyby to minimize
 %   the total Delta-V cost of an N:M resonant VILM maneuver: dV_total = dV_GA1 + dV_DSM + dV_GA2
 %   Strategy: 3D grid scan in spherical coordinates (vmag, theta, phi)
@@ -25,7 +25,9 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
 %   best_vinf_in: arrival v-infinity vector [km/s]
 %   best_va: arrival heliocentric velocity [km/s]
 %   best_vinf_o_n: magnitude of the optimal outgoing v-infinity [km/s]
-%   orbit_res: struct with trajectory arc data (.rdsm, .bdsm, .adsm)
+%   vilm_arc: struct packing the inputs needed to rebuild the resonant
+%             trajectory arcs externally (vinf_out, body, jd0, T_p, N, M,
+%             apsis_flag, mu_sun, search_nu)
 %   rp_GA1: periapsis radius at GA1 [km]
 %   rp_GA2: periapsis radius at GA2 [km]
 %
@@ -33,7 +35,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
 %   [-] n/a
 %
 % See also:
-%   objective_dV_total, objective_dV_total_fmin, solve_best_DSM,
+%   evaluateTotalResonantCost, wrapperResonantCostForFminsearch, findOptimalDSMParameters,
 %   grid_scan_3d, scan_and_refine_1d
 %
 % Adria Sola Foixench
@@ -103,7 +105,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
    
     % 3D grid scan
     % Build objective for the 3D scan: x = [vmag, theta, phi]
-    f_scan = @(x) objective_dV_total(x(1) * [cos(x(3))*cos(x(2)), cos(x(3))*sin(x(2)), sin(x(3))], vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, false);
+    f_scan = @(x) evaluateTotalResonantCost(x(1) * [cos(x(3))*cos(x(2)), cos(x(3))*sin(x(2)), sin(x(3))], vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, false);
 
     [x_best_scan, dV_best_scan] = grid_scan_3d(f_scan, vmag_vec, theta_vec, phi_vec);
 
@@ -120,7 +122,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
         best_vinf_in = [NaN NaN NaN];
         best_va = [NaN NaN NaN];
         best_vinf_o_n = NaN;
-        orbit_res = struct();
+        vilm_arc = struct('vinf_out',[NaN NaN NaN],'body',body,'jd0',jd0, 'T_p',T_p,'N',N,'M',M,'apsis_flag',apsis_flag,'mu_sun',mu_sun,'search_nu',[]);
         rp_GA1 = NaN;
         rp_GA2 = NaN;
         return;
@@ -134,11 +136,11 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
 
     if in_plane
         % 2D: optimize only [vmag, theta]
-        obj_fmin = @(x) objective_dV_total_fmin([x(1), x(2), 0], vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu);
+        obj_fmin = @(x) wrapperResonantCostForFminsearch([x(1), x(2), 0], vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu);
         x_opt2d = fminsearch(obj_fmin, [vmag0, theta0], options);
         x_opt = [x_opt2d(1), x_opt2d(2), 0];
     else
-        obj_fmin = @(x) objective_dV_total_fmin(x, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu);
+        obj_fmin = @(x) wrapperResonantCostForFminsearch(x, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu);
         x0 = [vmag0, theta0, phi0];
         x_opt = fminsearch(obj_fmin, x0, options);
     end
@@ -152,7 +154,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
    
     % Phase 3: Compare refined vs scan and select best
     % Evaluate refined solution in full mode
-    [dV_refined, dV_GA1_r, dV_DSM_r, dV_GA2_r, vinf_in_r, va_r, ~, ~, ~, rp1_r, rp2_r] = objective_dV_total(vinf_out_refined, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, true);
+    [dV_refined, dV_GA1_r, dV_DSM_r, dV_GA2_r, vinf_in_r, va_r, ~, ~, ~, rp1_r, rp2_r] = evaluateTotalResonantCost(vinf_out_refined, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, true);
 
     if dV_refined < dV_best_scan
         % Refined solution is better
@@ -167,7 +169,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
         rp_GA2 = rp2_r;
     else
         % Scan solution is better; re-evaluate in full mode
-        [dV_scan_full, dV_GA1_s, dV_DSM_s, dV_GA2_s, vinf_in_s, va_s, ~, ~, ~, rp1_s, rp2_s] = objective_dV_total(vinf_out_scan, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, true);
+        [dV_scan_full, dV_GA1_s, dV_DSM_s, dV_GA2_s, vinf_in_s, va_s, ~, ~, ~, rp1_s, rp2_s] = evaluateTotalResonantCost(vinf_out_scan, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu, true);
 
         best_vinf_out = vinf_out_scan;
         dV_total = dV_scan_full;
@@ -180,28 +182,18 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
         rp_GA2 = rp2_s;
     end
 
-    % Build trajectory arcs for visualization
     best_vinf_o_n = norm(best_vinf_out);
 
-    % Get revs_best and lp/lw from the solver to pass to Resonant_arcs
-    [~, ~, revs_best, ~, ~, r_m_arc, v_m_minus_arc, v_m_plus_arc, ~, va_arc] = solve_best_DSM(best_vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu, true);
+    % Pack inputs needed to rebuild the resonant arcs externally
 
-    mr_lambert_best = N - revs_best - 1;
-
-    % Departure state
-    [r_p0, v_p0] = GetBodyICF(body, jd0, mu_sun, 0);
-    v_sc0 = v_p0 + best_vinf_out;
-
-    % Arrival planet position
-    sec2days = 1 / 86400;
-    tof_total_s = M * T_p;
-    jd_f = jd0 + (tof_total_s * sec2days);
-    [r_pf, ~] = GetBodyICF(body, jd_f, mu_sun, 0);
-
-    [r_arc1, r_arc2, rdsm] = Resonant_arcs(r_p0, v_sc0, r_m_arc, v_m_minus_arc, v_m_plus_arc, r_pf, va_arc, revs_best, mr_lambert_best, mu_sun);
-
-    orbit_res.rdsm = rdsm;
-    orbit_res.bdsm = r_arc1;
-    orbit_res.adsm = r_arc2;
+    vilm_arc.vinf_out = best_vinf_out;
+    vilm_arc.body = body;
+    vilm_arc.jd0 = jd0;
+    vilm_arc.T_p = T_p;
+    vilm_arc.N = N;
+    vilm_arc.M = M;
+    vilm_arc.apsis_flag = apsis_flag;
+    vilm_arc.mu_sun = mu_sun;
+    vilm_arc.search_nu = search_nu;
 
 end

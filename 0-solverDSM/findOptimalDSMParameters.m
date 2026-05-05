@@ -1,4 +1,4 @@
-function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = solve_best_DSM(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, full_output_flag)
+function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, full_output_flag)
 %   Finds the optimal DSM for a given outgoing v-infinity vector by
 %   searching over all revolution splits (revs_before) and Lambert branches
 %   (lw, lp). For each combination, the 1D search over nu_DSM is performed 
@@ -34,7 +34,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
 %   [1] PhD thesis, David de la Torre Sangra
 %
 % See also:
-%   build_RessOrbDSM, scan_and_refine_1d, objective_dV_total
+%   computeSingleDSMTransferCost, scan_and_refine_1d, evaluateTotalResonantCost
 %
 % Adria Sola Foixench
 % April 2026
@@ -78,7 +78,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
         return; 
     end
     
-    % Mean motion properties for checkValidNu
+    % Mean motion properties for computeDSMStateAndTiming
     n_motion = sqrt(mu_sun / (sma^3));
     E0 = 2.0 * atan(sqrt((1.0 - ecc) / (1.0 + ecc)) * tan(nu0 / 2.0));
     M0 = E0 - ecc * sin(E0);
@@ -113,7 +113,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
             for lp_try = 0:lp_max
 
                 % Build function for this (revs, lw, lp)
-                f_nu = @(nu) build_RessOrbDSM(nu, revs_try, lw_try, lp_try, N, apsis_flag, mu_sun, false, orb_init, planets_state);
+                f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lw_try, lp_try, N, apsis_flag, mu_sun, false, orb_init, planets_state);
 
                 % Delegate the 1D search over nu to the external method
                 nu_opt = search_nu_handle(f_nu, nu_min, nu_max);
@@ -124,7 +124,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
                 end
 
                 % Rapid evaluation
-                dV_cand = build_RessOrbDSM(nu_opt, revs_try, lw_try, lp_try,N, apsis_flag, mu_sun, false, orb_init, planets_state);
+                dV_cand = computeSingleDSMTransferCost(nu_opt, revs_try, lw_try, lp_try,N, apsis_flag, mu_sun, false, orb_init, planets_state);
 
                 % Update global best across all splits and branches
                 if dV_cand < dV_best
@@ -141,7 +141,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
 
     % Recompute best solution with all state vectors
     if full_output_flag && ~isinf(dV_best)
-        [dV_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = build_RessOrbDSM(nu_best, revs_best, lw_best, lp_best, N, apsis_flag, mu_sun, true, orb_init, planets_state);
+        [dV_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_best, revs_best, lw_best, lp_best, N, apsis_flag, mu_sun, true, orb_init, planets_state);
     end
 
 end

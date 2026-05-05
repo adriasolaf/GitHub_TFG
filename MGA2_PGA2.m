@@ -1,4 +1,4 @@
-function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, orbit_res] = MGA2_PGA2(planets, jd2k0, tofs, N, M)
+function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets, jd2k0, tofs, N, M)
 %   Performs a multi-gravity assist trajectory by means of:
 %   - Powered Gravity Assist, 2D
 %   - Lambert arcs
@@ -21,13 +21,15 @@ function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, orbit_res] = MGA2_PGA2(planets,
 %   dvga: Gravity assist DeltaV at each encounter [km/s]
 %   rpga: Gravity assist periapsis radius at each encounter [km]
 %   dvdsm: DSM DeltaV for resonant legs [km/s]
-%   orbit_res: struct with resonant trajectory arc data
+%   vilm_arcs: struct array with the inputs needed to rebuild each
+%              resonant leg externally (one entry per transfer; non-VILM
+%              entries are empty)
 %
 % References:
 %   [-] n/a
 %
 % See also:
-%   Lambert, GA_PGA2_Rp, OptimitzationVILM
+%   Lambert, GA_PGA2_Rp, optimizeOutgoingVInfinityVILM
 %
 % David de la Torre Sangra (original MGA framework)
 % Adria Sola Foixench (VILM integration)
@@ -58,7 +60,8 @@ va = zeros(ltransfers,3);
 dvga = zeros(ltransfers-1,1);
 rpga = zeros(ltransfers-1,1);
 dvdsm = zeros(ltransfers,1);
-orbit_res = struct();
+vilm_arcs = repmat(struct('vinf_out',[],'body','','jd0',[],'T_p',[], ...
+    'N',[],'M',[],'apsis_flag',[],'mu_sun',[],'search_nu',[]), ltransfers, 1);
 
 % Dates of encounters with planets
 jd2k(1) = jd2k0;
@@ -155,7 +158,9 @@ for i = 1:ltransfers
     p_name = planets{i};
 
     % Optimize the full VILM sequence
-    [vout, ~, dV_GA1, dV_DSM, dV_GA2, ~, va_arr, ~, orbit_res, rp_GA1, rp_GA2] = OptimitzationVILM(p_name, jd2k(i), vinfi, vinfo, n_val, m_val, apsis_flag, mu, res_flag);
+    [vout, ~, dV_GA1, dV_DSM, dV_GA2, ~, va_arr, ~, vilm_arc_i, rp_GA1, rp_GA2] = optimizeOutgoingVInfinityVILM(p_name, jd2k(i), vinfi, vinfo, n_val, m_val, apsis_flag, mu, res_flag);
+
+    vilm_arcs(i) = vilm_arc_i;
 
     % Store results
     vd(i,:) = v(i,:) + vout;

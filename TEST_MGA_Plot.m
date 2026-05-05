@@ -26,7 +26,7 @@ n = 100; % Orbit resolution
 %% Compute Lambert MGA
 
 % Multi-Gravity Assist
-[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, orbit_res ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M );
+[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M );
 
 % Initial/Final Delta-V
 dvd = norm(vd(1,:) - v(1,:)); % Departure DeltaV
@@ -58,6 +58,28 @@ for k=1:(lPlanet-1)
     if ~is_vilm(k)
         orbS{k} = ICF2Arc(r(k,:),vd(k,:),r(k+1,:),va(k,:),mu,100);
     end
+end
+
+orbit_res_arr = repmat(struct('rdsm',[NaN NaN NaN],'bdsm',[],'adsm',[]), lPlanet-1, 1);
+for k = 1:(lPlanet-1)
+    if ~is_vilm(k)
+        continue;
+    end
+    arcs = vilm_arcs(k);
+
+    [~, ~, revs_best, ~, ~, r_m_arc, v_m_minus_arc, v_m_plus_arc, ~, va_arc] = findOptimalDSMParameters(arcs.vinf_out, arcs.body, arcs.jd0, arcs.T_p, arcs.N, arcs.M, arcs.apsis_flag, arcs.mu_sun, arcs.search_nu, true);
+
+    [r_p0, v_p0] = GetBodyICF(arcs.body, arcs.jd0, arcs.mu_sun, 0);
+    sec2days = 1/86400;
+    jd_f = arcs.jd0 + (arcs.M * arcs.T_p) * sec2days;
+    [r_pf, ~] = GetBodyICF(arcs.body, jd_f, arcs.mu_sun, 0);
+
+    v_sc0 = v_p0 + arcs.vinf_out;
+    mr_lambert = arcs.N - revs_best - 1;
+
+    [r_arc1, r_arc2, rdsm] = generateResonantTrajectoryPoints(r_p0, v_sc0, r_m_arc, v_m_minus_arc, v_m_plus_arc, r_pf, va_arc, revs_best, mr_lambert, arcs.mu_sun);
+
+    orbit_res_arr(k) = struct('rdsm',rdsm,'bdsm',r_arc1,'adsm',r_arc2);
 end
 
 %% Plot MGA trajectory
@@ -114,13 +136,13 @@ for k=1:length(orbS) % Plot spacecraft orbit
     if is_vilm(k)
         % Plot two arcs + DSM point
         % Arc 1 (pre-DSM)
-        trj1 = orbit_res.bdsm' / AU;
+        trj1 = orbit_res_arr(k).bdsm' / AU;
         plot3(trj1(1,:), trj1(2,:), trj1(3,:), 'k-', 'LineWidth', 0.5);
         % Arc 2 (post-DSM)
-        trj2 = orbit_res.adsm' / AU;
+        trj2 = orbit_res_arr(k).adsm' / AU;
         plot3(trj2(1,:), trj2(2,:), trj2(3,:), 'k-', 'LineWidth', 0.5);
         % DSM point
-        dsm_h = plot3(orbit_res.rdsm(1)/AU, orbit_res.rdsm(2)/AU, orbit_res.rdsm(3)/AU, ...
+        dsm_h = plot3(orbit_res_arr(k).rdsm(1)/AU, orbit_res_arr(k).rdsm(2)/AU, orbit_res_arr(k).rdsm(3)/AU, ...
                        'rx','LineWidth',1,'MarkerSize',7);
     else
         trj = [orbS{k}(:,1),orbS{k}(:,2),orbS{k}(:,3)]'/AU; % Trajectory

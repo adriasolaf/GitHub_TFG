@@ -1,4 +1,4 @@
-function [r_arc1, r_arc2, r_m_out] = Resonant_arcs(r_p0, v_sc0, r_m, v_m_minus, v_m_plus, r_pf, va, revs_before_m, mr_lambert, mu_sun)
+function [r_arc1, r_arc2, r_m_out] = generateResonantTrajectoryPoints(r_p0, v_sc0, r_m, v_m_minus, v_m_plus, r_pf, va, revs_before_m, mr_lambert, mu_sun)
 %   Calculates the sequence of position vectors for the complete
 %   spacecraft trajectory, split into two arcs: from departure to the
 %   DSM, and from the DSM to planetary arrival.
@@ -24,7 +24,7 @@ function [r_arc1, r_arc2, r_m_out] = Resonant_arcs(r_p0, v_sc0, r_m, v_m_minus, 
 %   [-] n/a
 %
 % See also:
-%   ICF2KEP_O, KEP2Arc, build_RessOrbDSM
+%   ICF2KEP_O, KEP2Arc, computeSingleDSMTransferCost
 %
 % Adria Sola Foixench
 % April 2026

@@ -1,7 +1,7 @@
-function dV_total = objective_dV_total_fmin(x, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu_handle)
+function dV_total = wrapperResonantCostForFminsearch(x, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu_handle)
 %   Function that converts spherical coordinates (vmag, theta, phi) into
 %   cartesian v-infinity vector and evaluates the total VILM cost with
-%   objective_dV_total. Applies a penalty if the magnitude falls outside [vmag_min, vmag_max].
+%   evaluateTotalResonantCost. Applies a penalty if the magnitude falls outside [vmag_min, vmag_max].
 %
 % Inputs:
 %   x: optimization variable [vmag, theta, phi]
@@ -30,7 +30,7 @@ function dV_total = objective_dV_total_fmin(x, vinfi, vinfo, body, jd0, T_p, N, 
 %   [-] n/a
 %
 % See also:
-%   objective_dV_total, OptimitzationVILM
+%   evaluateTotalResonantCost, optimizeOutgoingVInfinityVILM
 %
 % Adria Sola Foixench
 % April 2026
@@ -43,7 +43,7 @@ function dV_total = objective_dV_total_fmin(x, vinfi, vinfo, body, jd0, T_p, N, 
     vinf_out = vmag * [cos(phi)*cos(theta), cos(phi)*sin(theta), sin(phi)];
 
     % Evaluate total VILM cost in fast mode
-    dV_total = objective_dV_total(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, false);
+    dV_total = evaluateTotalResonantCost(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, false);
 
     % Penalize if magnitude is outside allowed bounds
     if vmag < vmag_min || vmag > vmag_max
