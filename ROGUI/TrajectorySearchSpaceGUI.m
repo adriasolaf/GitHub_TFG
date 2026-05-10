@@ -1,0 +1,669 @@
+function fig = TrajectorySearchSpaceGUI()
+%TrajectorySearchSpaceGUI Explore resonant-arc outer and inner search maps.
+%   The GUI is an orchestration layer. Numerical work is delegated to
+%   ROGUI/config, ROGUI/search, ROGUI/evaluation, and ROGUI/plot helpers.
+%
+%   Interaction model:
+%   1. Build a mission config from left-panel inputs.
+%   2. Sweep the outer vinf_out grid and plot a PCP-like cost map.
+%   3. Select an outer point by click or arrow keys.
+%   4. Build the branch-resolved inner nu_DSM map for that outer point.
+%   5. Select an inner branch sample and reconstruct the trajectory.
+%
+%   GUI-facing angles are degrees. All ROGUI numerical helpers receive
+%   radians, matching the rest of the repository.
+
+    addpath(genpath(pwd));
+
+    fig = uifigure('Name', 'ROGUI - Resonant Orbit GUI', 'Position', [80 80 1420 860]);
+    fig.WindowKeyPressFcn = @onKeyPress;
+    app = initialAppState();
+
+    root = uigridlayout(fig, [1 2]);
+    root.ColumnWidth = {330, '1x'};
+    root.Padding = [10 10 10 10];
+    root.ColumnSpacing = 10;
+
+    buildConfigPanel(root);
+    buildMainRegion(root);
+
+    fig.UserData = app;
+    logMessage('ROGUI ready.');
+
+    function buildConfigPanel(parent)
+        % The left panel exposes low-level search controls because this GUI
+        % is a developer diagnostic tool, not a black-box mission planner.
+        panel = uipanel(parent, 'Title', 'Mission Configuration');
+        panel.Layout.Row = 1;
+        panel.Layout.Column = 1;
+
+        grid = uigridlayout(panel, [27 2]);
+        grid.RowHeight = repmat({24}, 1, 27);
+        grid.RowHeight{26} = '1x';
+        grid.ColumnWidth = {120, '1x'};
+        grid.Padding = [10 10 10 10];
+        grid.RowSpacing = 5;
+
+        addLabel(grid, 'Planets', 1);
+        app.UI.planets = addText(grid, 'Earth,Venus,Earth,Earth,Jupiter', 1);
+
+        addLabel(grid, 'JD2000 start', 2);
+        app.UI.jd2k0 = addNumeric(grid, -3727, 2);
+
+        addLabel(grid, 'TOFs [days]', 3);
+        app.UI.tofs = addText(grid, '115,301,730,1094', 3);
+
+        addLabel(grid, 'N', 4);
+        app.UI.N = addText(grid, '1', 4);
+
+        addLabel(grid, 'M', 5);
+        app.UI.M = addText(grid, '2', 5);
+
+        addLabel(grid, 'Res. leg idx', 6);
+        app.UI.resonantIndex = addText(grid, '', 6);
+
+        addLabel(grid, '|vinf| grid', 7);
+        app.UI.vmag = addText(grid, '1:1:8', 7);
+
+        addLabel(grid, 'theta grid [deg]', 8);
+        app.UI.theta = addText(grid, '-180:30:150', 8);
+
+        addLabel(grid, 'phi grid [deg]', 9);
+        app.UI.phi = addText(grid, '0', 9);
+
+        addLabel(grid, 'nu grid [deg]', 10);
+        app.UI.nu = addText(grid, '1:3:177', 10);
+
+        addLabel(grid, 'nu scan pts', 11);
+        app.UI.innerScanPoints = addNumeric(grid, 80, 11);
+
+        addLabel(grid, 'nu refine iters', 12);
+        app.UI.innerRefineIterations = addNumeric(grid, 30, 12);
+
+        addLabel(grid, 'Color metric', 13);
+        app.UI.metric = uidropdown(grid, 'Items', {'totalDv', 'dV_DSM', 'dV_GA1', 'dV_GA2', 'rp1', 'rp2'}, 'Value', 'totalDv', ...
+            'ValueChangedFcn', @onMetricChanged);
+        app.UI.metric.Layout.Row = 13;
+        app.UI.metric.Layout.Column = 2;
+
+        addLabel(grid, 'lw branch', 14);
+        app.UI.lwMode = uidropdown(grid, 'Items', {'Auto', '0', '1'}, 'Value', 'Auto');
+        app.UI.lwMode.Layout.Row = 14;
+        app.UI.lwMode.Layout.Column = 2;
+
+        addLabel(grid, 'lp branch', 15);
+        app.UI.lpMode = uidropdown(grid, 'Items', {'Auto', '0', '1'}, 'Value', 'Auto');
+        app.UI.lpMode.Layout.Row = 15;
+        app.UI.lpMode.Layout.Column = 2;
+
+        app.UI.runOuter = uibutton(grid, 'Text', 'Run Outer Map', 'ButtonPushedFcn', @onRunOuterMap);
+        app.UI.runOuter.Layout.Row = 17;
+        app.UI.runOuter.Layout.Column = [1 2];
+
+        app.UI.runInner = uibutton(grid, 'Text', 'Run Inner Map', 'ButtonPushedFcn', @onRunInnerMap);
+        app.UI.runInner.Layout.Row = 18;
+        app.UI.runInner.Layout.Column = [1 2];
+
+        app.UI.stop = uibutton(grid, 'Text', 'Stop Current Run', 'ButtonPushedFcn', @onStop);
+        app.UI.stop.Layout.Row = 19;
+        app.UI.stop.Layout.Column = [1 2];
+
+        app.UI.clear = uibutton(grid, 'Text', 'Clear Results', 'ButtonPushedFcn', @onClear);
+        app.UI.clear.Layout.Row = 20;
+        app.UI.clear.Layout.Column = [1 2];
+
+        app.UI.export = uibutton(grid, 'Text', 'Export Selected MAT', 'ButtonPushedFcn', @onExportSelected);
+        app.UI.export.Layout.Row = 21;
+        app.UI.export.Layout.Column = [1 2];
+
+        app.UI.status = uitextarea(grid, 'Editable', 'off', 'Value', {'Status: idle'});
+        app.UI.status.Layout.Row = [23 27];
+        app.UI.status.Layout.Column = [1 2];
+    end
+
+    function buildMainRegion(parent)
+        % Keep visual outputs separated by purpose: outer topology, inner
+        % branch topology, selected physical trajectory, and scalar metrics.
+        main = uigridlayout(parent, [2 2]);
+        main.Layout.Row = 1;
+        main.Layout.Column = 2;
+        main.RowHeight = {'1x', 230};
+        main.ColumnWidth = {'1x', '1x'};
+        main.RowSpacing = 10;
+        main.ColumnSpacing = 10;
+
+        maps = uipanel(main, 'Title', 'Search-Space Maps');
+        maps.Layout.Row = 1;
+        maps.Layout.Column = 1;
+        mapsGrid = uigridlayout(maps, [2 1]);
+        mapsGrid.Padding = [8 8 8 8];
+
+        app.UI.outerAxes = uiaxes(mapsGrid);
+        app.UI.outerAxes.Layout.Row = 1;
+        app.UI.outerAxes.ButtonDownFcn = @onOuterAxesClicked;
+        title(app.UI.outerAxes, 'Outer PCP-like map');
+
+        app.UI.innerAxes = uiaxes(mapsGrid);
+        app.UI.innerAxes.Layout.Row = 2;
+        app.UI.innerAxes.ButtonDownFcn = @onInnerAxesClicked;
+        title(app.UI.innerAxes, 'Inner nu map');
+
+        trajPanel = uipanel(main, 'Title', 'Selected Trajectory');
+        trajPanel.Layout.Row = 1;
+        trajPanel.Layout.Column = 2;
+        trajGrid = uigridlayout(trajPanel, [1 1]);
+        trajGrid.Padding = [8 8 8 8];
+        app.UI.trajAxes = uiaxes(trajGrid);
+        view(app.UI.trajAxes, 0, 90);
+        grid(app.UI.trajAxes, 'on');
+
+        metricsPanel = uipanel(main, 'Title', 'Selected Metrics');
+        metricsPanel.Layout.Row = 2;
+        metricsPanel.Layout.Column = 1;
+        metricsGrid = uigridlayout(metricsPanel, [1 1]);
+        app.UI.metrics = uitable(metricsGrid, 'Data', table("No selection", "Run an outer map first", ...
+            'VariableNames', {'Metric', 'Value'}));
+
+        logPanel = uipanel(main, 'Title', 'Log');
+        logPanel.Layout.Row = 2;
+        logPanel.Layout.Column = 2;
+        logGrid = uigridlayout(logPanel, [1 1]);
+        app.UI.log = uitextarea(logGrid, 'Editable', 'off', 'Value', {'ROGUI log initialized.'});
+    end
+
+    function onRunOuterMap(~, ~)
+        % Rebuild config on every run so edits in the left panel are the
+        % single source of truth. Previous maps and selections are discarded.
+        app = fig.UserData;
+        app.State.cancelRequested = false;
+        fig.UserData = app;
+
+        try
+            setRunning(true);
+            config = readConfigFromUi();
+            app = fig.UserData;
+            app.Config = config;
+            app.Results = initialResults();
+            fig.UserData = app;
+            options.cancelFcn = @isCancelled;
+            options.progressFcn = @onOuterProgress;
+            [outerMap, bestOuter] = runOuterSearchSpaceMap(config, options);
+
+            app = fig.UserData;
+            app.Results.outerMap = outerMap;
+            app.Results.selectedOuter = bestOuter;
+            fig.UserData = app;
+
+            refreshOuterPlot();
+            if ~isempty(bestOuter)
+                selectOuterCandidate(bestOuter);
+            else
+                logMessage('Outer map completed with no feasible point.');
+            end
+        catch err
+            logMessage(['Outer map failed: ' err.message]);
+        end
+        setRunning(false);
+    end
+
+    function onRunInnerMap(~, ~)
+        % Manual rerun of the inner map for the current outer point. Normal
+        % point selection also calls selectOuterCandidate automatically.
+        app = fig.UserData;
+        if isempty(app.Config) || isempty(app.Results.selectedOuter)
+            logMessage('Select or compute an outer candidate before running the inner map.');
+            return;
+        end
+        try
+            setRunning(true);
+            app.State.cancelRequested = false;
+            fig.UserData = app;
+            selectOuterCandidate(app.Results.selectedOuter);
+        catch err
+            logMessage(['Inner map failed: ' err.message]);
+        end
+        setRunning(false);
+    end
+
+    function selectOuterCandidate(candidate)
+        % Selecting an outer point changes the fixed vinf_out vector. The
+        % inner map is therefore invalidated and recomputed immediately.
+        app = fig.UserData;
+        app.Results.selectedOuter = candidate;
+        fig.UserData = app;
+        refreshOuterPlot();
+
+        options.cancelFcn = @isCancelled;
+        options.progressFcn = @onInnerProgress;
+        [innerMap, bestInner] = runInnerNuSearchMap(app.Config, candidate, options);
+
+        app = fig.UserData;
+        app.Results.innerMap = innerMap;
+        app.Results.selectedInner = bestInner;
+        fig.UserData = app;
+
+        refreshInnerPlot();
+        if ~isempty(bestInner)
+            selectInnerCandidate(bestInner);
+        else
+            updateTrajectory([]);
+            logMessage('No feasible inner point found for selected outer point.');
+        end
+    end
+
+    function selectInnerCandidate(candidate)
+        % Selecting an inner point changes only the DSM branch/sample used
+        % for the trajectory reconstruction.
+        app = fig.UserData;
+        app.Results.selectedInner = candidate;
+        fig.UserData = app;
+        refreshInnerPlot();
+        updateTrajectory(candidate);
+    end
+
+    function updateTrajectory(innerCandidate)
+        % Trajectory reconstruction is the most expensive click-time step,
+        % so selected cases are cached by mission plus outer/inner variables.
+        app = fig.UserData;
+        if isempty(app.Results.selectedOuter)
+            return;
+        end
+
+        key = buildSearchSpaceCacheKey(app.Config, app.Results.selectedOuter);
+        if ~isempty(innerCandidate)
+            key = [key '|inner|' buildSearchSpaceCacheKey(app.Config, innerCandidate)];
+        end
+
+        if isKey(app.Cache.trajectory, key)
+            traj = app.Cache.trajectory(key);
+        else
+            traj = evaluateTrajectoryCandidate(app.Config, app.Results.selectedOuter, innerCandidate);
+            app.Cache.trajectory(key) = traj;
+        end
+        app.Results.trajectory = traj;
+        fig.UserData = app;
+
+        if traj.status.ok
+            plotTrajectory3D(app.UI.trajAxes, traj);
+            updateMetrics(traj);
+        else
+            cla(app.UI.trajAxes);
+            updateMetrics(traj);
+            logMessage(['Trajectory infeasible: ' traj.status.message]);
+        end
+    end
+
+    function refreshOuterPlot()
+        % Plot helpers expect totalDv as the color field. For alternate
+        % metrics, copy the selected column into totalDv in a temporary table.
+        app = fig.UserData;
+        metric = app.UI.metric.Value;
+        data = app.Results.outerMap;
+        if ~isempty(data) && istable(data) && any(strcmp(metric, data.Properties.VariableNames))
+            plotData = data;
+            plotData.totalDv = data.(metric);
+        else
+            plotData = data;
+        end
+        handles = plotOuterSearchMap(app.UI.outerAxes, plotData, app.Results.selectedOuter, metric);
+        wireClickHandles(handles, @onOuterAxesClicked);
+    end
+
+    function refreshInnerPlot()
+        % The inner plot always shows total cost so the selected trajectory
+        % marker corresponds directly to the metric table.
+        app = fig.UserData;
+        handles = plotInnerSearchMap(app.UI.innerAxes, app.Results.innerMap, app.Results.selectedInner, 'totalDv');
+        wireClickHandles(handles, @onInnerAxesClicked);
+    end
+
+    function onOuterAxesClicked(~, ~)
+        % The map is discrete even when drawn as contours. A click selects
+        % the nearest feasible sampled grid point, not an interpolated value.
+        app = fig.UserData;
+        if isempty(app.Results.outerMap)
+            return;
+        end
+        point = app.UI.outerAxes.CurrentPoint;
+        xyz = point(1, 1:3);
+        data = app.Results.outerMap;
+        feasible = data.isFeasible & isfinite(data.totalDv);
+        if ~any(feasible)
+            return;
+        end
+        rows = data(feasible, :);
+        if any(abs(rows.phi - rows.phi(1)) > 1e-12)
+            dx = rad2deg(rows.theta) - xyz(1);
+            dy = rad2deg(rows.phi) - xyz(2);
+            dz = rows.vmag - xyz(3);
+            [~, idx] = min(dx.^2 + dy.^2 + dz.^2);
+        else
+            dx = rad2deg(rows.theta) - xyz(1);
+            dy = rows.vmag - xyz(2);
+            [~, idx] = min(dx.^2 + dy.^2);
+        end
+        selectOuterCandidate(rows(idx, :));
+    end
+
+    function onInnerAxesClicked(~, ~)
+        % Inner-map samples are branch-resolved. Click selects the nearest
+        % feasible nu sample among all currently displayed branches.
+        app = fig.UserData;
+        if isempty(app.Results.innerMap)
+            return;
+        end
+        point = app.UI.innerAxes.CurrentPoint;
+        nu = deg2rad(point(1, 1));
+        data = app.Results.innerMap;
+        feasible = data.isFeasible & isfinite(data.totalDv);
+        if ~any(feasible)
+            return;
+        end
+        rows = data(feasible, :);
+        [~, idx] = min(abs(rows.nu - nu));
+        selectInnerCandidate(rows(idx, :));
+    end
+
+    function onMetricChanged(~, ~)
+        app = fig.UserData;
+        if ~isempty(app.Results.outerMap)
+            refreshOuterPlot();
+        end
+    end
+
+    function onKeyPress(~, event)
+        % Arrow navigation is defined on outer grid indices. Left/right move
+        % theta; up/down move |vinf|. Phi stays on the current slice.
+        if ~ismember(event.Key, {'leftarrow','rightarrow','uparrow','downarrow'})
+            return;
+        end
+        app = fig.UserData;
+        if isempty(app.Results.outerMap) || isempty(app.Results.selectedOuter)
+            return;
+        end
+        next = neighborOuterCandidate(app.Results.outerMap, app.Results.selectedOuter, event.Key);
+        if ~isempty(next)
+            selectOuterCandidate(next);
+        end
+    end
+
+    function onStop(~, ~)
+        app = fig.UserData;
+        app.State.cancelRequested = true;
+        fig.UserData = app;
+        logMessage('Stop requested. Current loop will stop at the next cancellation check.');
+    end
+
+    function onClear(~, ~)
+        app = fig.UserData;
+        app.Results = initialResults();
+        app.Cache.trajectory = containers.Map('KeyType', 'char', 'ValueType', 'any');
+        fig.UserData = app;
+        cla(app.UI.outerAxes);
+        cla(app.UI.innerAxes);
+        cla(app.UI.trajAxes);
+        updateMetrics([]);
+        logMessage('Results cleared.');
+    end
+
+    function onExportSelected(~, ~)
+        app = fig.UserData;
+        if isempty(app.Results.trajectory)
+            logMessage('No selected trajectory to export.');
+            return;
+        end
+        [file, path] = uiputfile('*.mat', 'Export selected ROGUI case', 'rogui-selected-case.mat');
+        if isequal(file, 0)
+            return;
+        end
+        selected = app.Results; %#ok<NASGU>
+        config = app.Config; %#ok<NASGU>
+        save(fullfile(path, file), 'selected', 'config');
+        logMessage(['Exported selected case to ' fullfile(path, file)]);
+    end
+
+    function config = readConfigFromUi()
+        % Convert GUI-facing text fields into the normalized config schema.
+        % Angle text boxes use degrees for readability, then convert here.
+        app = fig.UserData;
+        raw = struct();
+        raw.planets = app.UI.planets.Value;
+        raw.jd2k0 = app.UI.jd2k0.Value;
+        raw.tofs = parseNumericVector(app.UI.tofs.Value);
+        raw.N = parseNumericVector(app.UI.N.Value);
+        raw.M = parseNumericVector(app.UI.M.Value);
+        raw.resonantIndex = parseOptionalScalar(app.UI.resonantIndex.Value);
+        raw.outerVmag = parseNumericVector(app.UI.vmag.Value);
+        raw.outerTheta = deg2rad(parseNumericVector(app.UI.theta.Value));
+        raw.outerPhi = deg2rad(parseNumericVector(app.UI.phi.Value));
+        raw.innerNu = deg2rad(parseNumericVector(app.UI.nu.Value));
+        raw.innerScanPoints = app.UI.innerScanPoints.Value;
+        raw.innerRefineIterations = app.UI.innerRefineIterations.Value;
+        raw.fixedLw = parseBranchMode(app.UI.lwMode.Value);
+        raw.fixedLp = parseBranchMode(app.UI.lpMode.Value);
+        config = createSearchSpaceGuiConfig(raw);
+    end
+
+    function tf = isCancelled()
+        app = fig.UserData;
+        tf = app.State.cancelRequested;
+    end
+
+    function onOuterProgress(idx, total, ~)
+        if mod(idx, 5) == 0 || idx == total
+            setStatus(sprintf('Outer map: %d / %d', idx, total));
+        end
+    end
+
+    function onInnerProgress(idx, total, ~)
+        if mod(idx, 20) == 0 || idx == total
+            setStatus(sprintf('Inner map: %d / %d', idx, total));
+        end
+    end
+
+    function setRunning(tf)
+        app = fig.UserData;
+        app.State.isRunning = tf;
+        if tf
+            app.UI.runOuter.Enable = 'off';
+            app.UI.runInner.Enable = 'off';
+        else
+            app.UI.runOuter.Enable = 'on';
+            app.UI.runInner.Enable = 'on';
+        end
+        fig.UserData = app;
+        drawnow limitrate;
+    end
+
+    function setStatus(message)
+        app = fig.UserData;
+        app.UI.status.Value = {message};
+        fig.UserData = app;
+        drawnow limitrate;
+    end
+
+    function updateMetrics(traj)
+        % Keep metrics compact and numerical. The log window is reserved
+        % for warnings/errors and explicit user actions.
+        app = fig.UserData;
+        if isempty(traj)
+            app.UI.metrics.Data = table("No selection", "N/A", 'VariableNames', {'Metric', 'Value'});
+            fig.UserData = app;
+            return;
+        end
+        if ~traj.status.ok
+            app.UI.metrics.Data = table(["Status"; "Message"], ["Infeasible"; string(traj.status.message)], ...
+                'VariableNames', {'Metric', 'Value'});
+            fig.UserData = app;
+            return;
+        end
+
+        inner = traj.selectedInner;
+        metrics = [
+            "Total dV [km/s]"
+            "GA1 dV [km/s]"
+            "DSM dV [km/s]"
+            "GA2 dV [km/s]"
+            "nu [deg]"
+            "revs before DSM"
+            "lw"
+            "lp"
+            "rp1 [km]"
+            "rp2 [km]"];
+        values = [
+            traj.cost.totalDv
+            traj.cost.dV_GA1
+            traj.cost.dV_DSM
+            traj.cost.dV_GA2
+            rad2deg(inner.nu)
+            inner.revs_before
+            inner.lw
+            inner.lp
+            traj.cost.rp1
+            traj.cost.rp2];
+        app.UI.metrics.Data = table(metrics, string(values), 'VariableNames', {'Metric', 'Value'});
+        fig.UserData = app;
+    end
+
+    function logMessage(message)
+        app = fig.UserData;
+        line = sprintf('[%s] %s', char(datetime('now', 'Format', 'HH:mm:ss')), message);
+        app.UI.log.Value = [app.UI.log.Value; {line}];
+        fig.UserData = app;
+        drawnow limitrate;
+    end
+end
+
+function app = initialAppState()
+    % All mutable GUI state lives in fig.UserData. Nested callbacks read it
+    % fresh on entry so state updates remain explicit.
+    app = struct();
+    app.Config = [];
+    app.Results = initialResults();
+    app.Cache.trajectory = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    app.Cache.evaluations = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    app.State.isRunning = false;
+    app.State.cancelRequested = false;
+    app.UI = struct();
+end
+
+function results = initialResults()
+    results = struct('outerMap', [], 'innerMap', [], 'selectedOuter', [], ...
+        'selectedInner', [], 'trajectory', []);
+end
+
+function addLabel(parent, text, row)
+    label = uilabel(parent, 'Text', text);
+    label.Layout.Row = row;
+    label.Layout.Column = 1;
+end
+
+function field = addText(parent, value, row)
+    field = uieditfield(parent, 'text', 'Value', value);
+    field.Layout.Row = row;
+    field.Layout.Column = 2;
+end
+
+function field = addNumeric(parent, value, row)
+    field = uieditfield(parent, 'numeric', 'Value', value);
+    field.Layout.Row = row;
+    field.Layout.Column = 2;
+end
+
+function values = parseNumericVector(text)
+    % Accept both MATLAB vector syntax (a:b:c) and loose comma/semicolon
+    % lists so developers can paste grids quickly while experimenting.
+    text = char(text);
+    if contains(text, ':')
+        values = str2num(text); %#ok<ST2NM>
+    else
+        text = strrep(text, ',', ' ');
+        text = strrep(text, ';', ' ');
+        values = str2num(text); %#ok<ST2NM>
+    end
+    if isempty(values)
+        error('ROGUI:InvalidInput', 'Could not parse numeric vector: %s', text);
+    end
+end
+
+function value = parseOptionalScalar(text)
+    text = strtrim(char(text));
+    if isempty(text)
+        value = [];
+    else
+        parsed = str2double(text);
+        if ~isfinite(parsed)
+            error('ROGUI:InvalidInput', 'Could not parse scalar: %s', text);
+        end
+        value = parsed;
+    end
+end
+
+function value = parseBranchMode(text)
+    if strcmp(text, 'Auto')
+        value = [];
+    else
+        value = str2double(text);
+    end
+end
+
+function wireClickHandles(handles, callback)
+    % Plot helpers return mixed graphics objects. Only objects that support
+    % callbacks receive them; the axes callback remains the fallback.
+    if ~isstruct(handles)
+        return;
+    end
+    names = fieldnames(handles);
+    for idx = 1:numel(names)
+        h = handles.(names{idx});
+        for j = 1:numel(h)
+            if isgraphics(h(j))
+                try
+                    set(h(j), 'ButtonDownFcn', callback, 'PickableParts', 'all');
+                catch
+                    % Some graphics objects, such as colorbars, do not
+                    % expose click callbacks. The axes callback remains
+                    % active for point selection.
+                end
+            end
+        end
+    end
+end
+
+function next = neighborOuterCandidate(outerMap, selectedOuter, key)
+    % Move one discrete outer-grid step from the current selection. This is
+    % intentionally grid-based, not geometric nearest-neighbor navigation.
+    next = table();
+    feasible = outerMap.isFeasible & isfinite(outerMap.totalDv);
+    if ~any(feasible)
+        return;
+    end
+    rows = outerMap(feasible, :);
+    selectedOuter = selectedOuter(1, :);
+
+    thetaVals = unique(rows.theta);
+    vmagVals = unique(rows.vmag);
+    phiVals = unique(rows.phi);
+    [~, iTheta] = min(abs(thetaVals - selectedOuter.theta));
+    [~, iVmag] = min(abs(vmagVals - selectedOuter.vmag));
+    [~, iPhi] = min(abs(phiVals - selectedOuter.phi));
+
+    if strcmp(key, 'leftarrow')
+        iTheta = max(1, iTheta - 1);
+    elseif strcmp(key, 'rightarrow')
+        iTheta = min(numel(thetaVals), iTheta + 1);
+    elseif strcmp(key, 'downarrow')
+        iVmag = max(1, iVmag - 1);
+    elseif strcmp(key, 'uparrow')
+        iVmag = min(numel(vmagVals), iVmag + 1);
+    end
+
+    match = abs(rows.theta - thetaVals(iTheta)) < 1e-12 & ...
+        abs(rows.vmag - vmagVals(iVmag)) < 1e-12 & ...
+        abs(rows.phi - phiVals(iPhi)) < 1e-12;
+    if any(match)
+        candidates = rows(match, :);
+        [~, idx] = min(candidates.totalDv);
+        next = candidates(idx, :);
+    end
+end
