@@ -19,7 +19,7 @@ function [x_best, f_best, x_vec, f_vec] = grid_scan_1d(f, a, b, N_points)
 %   [-] n/a
 %
 % See also:
-%   ternary_search, scan_and_refine_1d
+%   scan_and_refine_1d
 %
 % Adria Sola Foixench
 % April 2026

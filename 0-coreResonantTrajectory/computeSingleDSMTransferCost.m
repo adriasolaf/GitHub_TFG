@@ -1,13 +1,12 @@
-function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_DSM, revs_before, lw, lp, N, apsis_flag, mu_sun, full_output_flag, orb_init, planets_state)
+function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_DSM, revs_before, lp, N, apsis_flag, mu_sun, full_output_flag, orb_init, planets_state)
 %   Constructs a single resonant orbit + DSM transfer for a specified
 %   set of inputs. Given a DSM true anomaly, a revolution split, and a Lambert 
-%   branch (lw, lp), it validates the geometry via computeDSMStateAndTiming, solves a single 
+%   branch (lp), it validates the geometry via computeDSMStateAndTiming, solves a single 
 %   Lambert arc to the arrival, and returns the resulting DSM Delta-V.
 %
 % Inputs:
 %   nu_DSM: scanned angle for DSM true anomaly placement [rad]
 %   revs_before: number of full Kepler revolutions before the DSM
-%   lw: Lambert long-way flag (0 = short way, 1 = long way)
 %   lp: Lambert long-period flag (0 = short period, 1 = long period)
 %   N: number of spacecraft revolutions in the resonant orbit
 %   apsis_flag: DSM reference apsis (1 = apoapsis, 0 = periapsis)
@@ -48,8 +47,8 @@ function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTrans
     % Multi-revolution Lambert arc from DSM to arrival?
     mr_lambert = N - revs_before - 1;
 
-    % Solve the single Lambert problem for the specified branch (lw, lp)
-    [v_m_plus_L, v_scf, flag_L, ~] = Lambert(r_m_cv, planets_state.r_pf, tof_lambert, mu_sun, lw, mr_lambert, lp);
+    % Solve the single Lambert problem for the specified lp
+    [v_m_plus_L, v_scf, flag_L, ~] = Lambert(r_m_cv, planets_state.r_pf, tof_lambert, mu_sun, [], mr_lambert, lp);
 
     % Check Lambert convergence
     if flag_L ~= 0

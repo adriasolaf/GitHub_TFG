@@ -8,7 +8,7 @@ function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
 %   a: lower bound of the search interval
 %   b: upper bound of the search interval
 %   N_points: number of grid points for the scan
-%   N_refine: number of ternary search iterations for refinement
+%   N_refine: number of iterations for refinement / 6
 %
 % Outputs:
 %   x_opt: refined estimate of the minimum location
@@ -19,7 +19,7 @@ function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
 %   [-] n/a
 %
 % See also:
-%   grid_scan_1d, ternary_search
+%   grid_scan_1d
 %
 % Adria Sola Foixench
 % April 2026
@@ -49,7 +49,14 @@ function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
         ref_hi = x_vec(N_points);
     end
 
-    % Ternary search refinement within the cell
-    x_opt = ternary_search(f, ref_lo, ref_hi, N_refine);
+    %Refinement within the cell
+    x_fine = linspace(ref_lo, ref_hi, N_refine * 6);
+    f_fine = arrayfun(f, x_fine);
+    [min_val, idx_fine] = min(f_fine);
+    if ~isfinite(min_val)
+        x_opt = NaN; 
+        return;
+    end
+    x_opt = x_fine(idx_fine);
 
 end

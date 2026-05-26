@@ -1,4 +1,4 @@
-function dV_total = wrapperResonantCostForFminsearch(x, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu_handle)
+function dV_total = wrapperResonantCostForFminsearch(x, vinfi_req, vinfo_req, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, vmag_min, vmag_max, res_flag, search_nu_handle)
 %   Function that converts spherical coordinates (vmag, theta, phi) into
 %   cartesian v-infinity vector and evaluates the total VILM cost with
 %   evaluateTotalResonantCost. Applies a penalty if the magnitude falls outside [vmag_min, vmag_max].
@@ -8,8 +8,8 @@ function dV_total = wrapperResonantCostForFminsearch(x, vinfi, vinfo, body, jd0,
 %          x(1) = v-infinity magnitude [km/s]
 %          x(2) = azimuth angle theta [rad]
 %          x(3) = elevation angle phi [rad]
-%   vinfi: inbound v-infinity vector at GA1 [km/s]
-%   vinfo: desired outbound v-infinity vector at GA2 [km/s]
+%   vinfi_req: inbound v-infinity vector at GA1 [km/s]
+%   vinfo_req: desired outbound v-infinity vector at GA2 [km/s]
 %   body: identifier for the planetary body
 %   jd0: departure epoch
 %   T_p: orbital period of the resonant body [s]
@@ -43,7 +43,7 @@ function dV_total = wrapperResonantCostForFminsearch(x, vinfi, vinfo, body, jd0,
     vinf_out = vmag * [cos(phi)*cos(theta), cos(phi)*sin(theta), sin(phi)];
 
     % Evaluate total VILM cost in fast mode
-    dV_total = evaluateTotalResonantCost(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, false);
+    dV_total = evaluateTotalResonantCost(vinf_out, vinfi_req, vinfo_req, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, false);
 
     % Penalize if magnitude is outside allowed bounds
     if vmag < vmag_min || vmag > vmag_max

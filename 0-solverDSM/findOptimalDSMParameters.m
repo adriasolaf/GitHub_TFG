@@ -1,7 +1,7 @@
-function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, full_output_flag)
+function [dV_best, nu_best, revs_best, lp_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, full_output_flag)
 %   Finds the optimal DSM for a given outgoing v-infinity vector by
 %   searching over all revolution splits (revs_before) and Lambert branches
-%   (lw, lp). For each combination, the 1D search over nu_DSM is performed 
+%   (lp). For each combination, the 1D search over nu_DSM is performed 
 %   by an external function handle.
 %
 % Inputs:
@@ -22,7 +22,6 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
 %   dV_best: minimum DSM Delta-V found across all splits/branches [km/s]
 %   nu_best: optimal DSM true anomaly change [rad]
 %   revs_best: optimal number of revolutions before DSM
-%   lw_best: optimal Lambert long-way flag
 %   lp_best: optimal Lambert long-period flag
 %   r_m: DSM position vector [km]
 %   v_m_minus: velocity before DSM [km/s]
@@ -43,7 +42,6 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
     dV_best = Inf;
     nu_best = NaN;
     revs_best = NaN;
-    lw_best = NaN;
     lp_best = NaN;
     r_m = [NaN NaN NaN];
     v_m_minus = [NaN NaN NaN];
@@ -52,9 +50,8 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
     va = [NaN NaN NaN];
 
     % Search bounds for nu_DSM
-    offset = 1e-3;
     nu_min = 0;
-    nu_max = pi - offset;
+    nu_max = 2*pi;
 
     sec2days = 1 / 86400;
     tof_total_s = M * T_p;
@@ -63,7 +60,7 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
     % Position of the planets at departure and arrival
     [r_p0, v_p0] = GetBodyICF(body, jd0, mu_sun, 0);
     [r_pf, v_pf] = GetBodyICF(body, jd_f, mu_sun, 0);
-    
+
     planets_state.r_pf = r_pf;
     planets_state.v_pf = v_pf;
     planets_state.jd_f = jd_f;
@@ -109,39 +106,36 @@ function [dV_best, nu_best, revs_best, lw_best, lp_best, r_m, v_m_minus, v_m_plu
         end
 
         % Loop over all Lambert branches
-        for lw_try = 0:1
-            for lp_try = 0:lp_max
+        for lp_try = 0:lp_max
 
-                % Build function for this (revs, lw, lp)
-                f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lw_try, lp_try, N, apsis_flag, mu_sun, false, orb_init, planets_state);
+            % Build function for this (revs, lp)
+            f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lp_try, N, apsis_flag, mu_sun, false, orb_init, planets_state);
 
-                % Delegate the 1D search over nu to the external method
-                nu_opt = search_nu_handle(f_nu, nu_min, nu_max);
+            % Delegate the 1D search over nu to the external method
+            nu_opt = search_nu_handle(f_nu, nu_min, nu_max);
 
-                % Skip if search returned no valid solution
-                if isnan(nu_opt)
-                    continue;
-                end
-
-                % Rapid evaluation
-                dV_cand = computeSingleDSMTransferCost(nu_opt, revs_try, lw_try, lp_try,N, apsis_flag, mu_sun, false, orb_init, planets_state);
-
-                % Update global best across all splits and branches
-                if dV_cand < dV_best
-                    dV_best = dV_cand;
-                    nu_best = nu_opt;
-                    revs_best = revs_try;
-                    lw_best = lw_try;
-                    lp_best = lp_try;
-                end
-
+            % Skip if search returned no valid solution
+            if isnan(nu_opt)
+                continue;
             end
+
+            % Rapid evaluation
+            dV_cand = computeSingleDSMTransferCost(nu_opt, revs_try, lp_try,N, apsis_flag, mu_sun, false, orb_init, planets_state);
+
+            % Update global best across all splits and branches
+            if dV_cand < dV_best
+                dV_best = dV_cand;
+                nu_best = nu_opt;
+                revs_best = revs_try;
+                lp_best = lp_try;
+            end
+
         end
     end
 
     % Recompute best solution with all state vectors
     if full_output_flag && ~isinf(dV_best)
-        [dV_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_best, revs_best, lw_best, lp_best, N, apsis_flag, mu_sun, true, orb_init, planets_state);
+        [dV_best, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_best, revs_best, lp_best, N, apsis_flag, mu_sun, true, orb_init, planets_state);
     end
 
 end

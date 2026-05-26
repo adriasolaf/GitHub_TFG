@@ -1,18 +1,34 @@
 %% Test script: compute and plot a simple MGA trajectory
 
 % MGA Sequence Galileo (E-V-E-E-J), launch Oct 18 1989
-planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
-jd2k0 = -3727; % Oct 18, 1989
+% planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
+% jd2k0 = -3727; % Oct 18, 1989
 
-N = 1; M = 2; % E-E resonance: 1 spacecraft rev in 2 Earth periods (730 days)
+% JUICE
+planets = {'Earth', 'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
+jd2k0 = 8187;
+
+% planets = {'Earth', 'Earth', 'Mars', 'Earth', 'Earth', 'Jupiter'};
+% jd2k0 = 1522;
+% planets = {'Earth', 'Venus', 'Venus', 'Earth', 'Jupiter', 'Saturn'};
+% jd2k0 = -817;
+
+N = [1,   NaN, NaN, 1,   NaN];
+M = [1,   NaN, NaN, 2,   NaN];
 
 mu = GetBodyProps('Sun');
 body = 'Earth';
-jd_earth1 = jd2k0 + 115 + 301;
+% jd_earth1 = jd2k0 + 115 + 301;
+% jd_earth1 = jd2k0 + 367 + 723 + 261;
+jd_earth1 = jd2k0 + 175 + 332;
+[sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd2k0);
+T_p0 = 2*pi*sqrt(sma_planet^3 / mu); % Earth orbital period [s]
 [sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd_earth1);
 T_p = 2*pi*sqrt(sma_planet^3 / mu); % Earth orbital period [s]
 
-tofs = [115, 301, T_p*M/86400, 1094]; % E->V, V->E1, E1->E2 (VILM), E2->J
+tofs = [367, 175, 332, T_p*M(4)/86400, 1185]; % E->V, V->E1, E1->E2 (VILM), E2->J
+% tofs = [367, 723, 262, T_p*M/86400, 1727];
+%tofs = [197, 425, 57, 502, 1279];
 
 
 % Get planet strings
@@ -24,9 +40,9 @@ AU = 1.49597871E8; % Astronomical Unit (AU) [km]
 n = 100; % Orbit resolution
 
 %% Compute Lambert MGA
-
+opts = struct('N_mag',8, 'N_theta',12, 'N_phi',5, 'N_points_nu',500, 'N_refine_nu',60,'algorithm','grid+fmin');
 % Multi-Gravity Assist
-[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M );
+[ jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M, opts);
 
 % Initial/Final Delta-V
 dvd = norm(vd(1,:) - v(1,:)); % Departure DeltaV
@@ -45,12 +61,10 @@ for k=1:lPlanet
 end
 
 % Spacecraft orbit
-% Identify resonant legs (same planet at both ends)
+% Identify resonant legs from vilm_arcs
 is_vilm = false(lPlanet-1, 1);
 for k = 1:(lPlanet-1)
-    if strcmp(planets{k}, planets{k+1})
-        is_vilm(k) = true;
-    end
+    is_vilm(k) = ~isempty(vilm_arcs(k).body);
 end
 
 orbS = cell(lPlanet-1,1);
@@ -67,7 +81,7 @@ for k = 1:(lPlanet-1)
     end
     arcs = vilm_arcs(k);
 
-    [~, ~, revs_best, ~, ~, r_m_arc, v_m_minus_arc, v_m_plus_arc, ~, va_arc] = findOptimalDSMParameters(arcs.vinf_out, arcs.body, arcs.jd0, arcs.T_p, arcs.N, arcs.M, arcs.apsis_flag, arcs.mu_sun, arcs.search_nu, true);
+    [~, ~, revs_best, ~, r_m_arc, v_m_minus_arc, v_m_plus_arc, ~, va_arc] = findOptimalDSMParameters(arcs.vinf_out, arcs.body, arcs.jd0, arcs.T_p, arcs.N, arcs.M, arcs.apsis_flag, arcs.mu_sun, arcs.search_nu, true);
 
     [r_p0, v_p0] = GetBodyICF(arcs.body, arcs.jd0, arcs.mu_sun, 0);
     sec2days = 1/86400;

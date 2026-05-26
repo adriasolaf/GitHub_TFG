@@ -1,4 +1,4 @@
-function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets, jd2k0, tofs, N, M)
+function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets, jd2k0, tofs, N, M, opts)
 %   Performs a multi-gravity assist trajectory by means of:
 %   - Powered Gravity Assist, 2D
 %   - Lambert arcs
@@ -11,6 +11,8 @@ function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets,
 %   tofs: times of flight between sequence objects [days]
 %   N: number of spacecraft revolutions (scalar or vector per VILM)
 %   M: number of body revolutions (scalar or vector per VILM)
+%   opts: struct with optimizer settings forwarded to optimizeOutgoingVInfinityVILM. Same opts is
+%         applied to every VILM leg in the sequence.
 %
 % Outputs:
 %   jd2k: time at each encounter [days from J2000]
@@ -32,12 +34,8 @@ function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets,
 %   Lambert, GA_PGA2_Rp, optimizeOutgoingVInfinityVILM
 %
 % David de la Torre Sangra (original MGA framework)
-% Adria Sola Foixench (VILM integration)
-% January 2015 / April 2026
-
-if nargin < 4
-    N = 1; M = 1;
-end
+% Adria Sola Foixench (Resonant integration)
+% January 2015 / May 2026
 
 % Constants
 mu = GetBodyProps('Sun');
@@ -60,8 +58,7 @@ va = zeros(ltransfers,3);
 dvga = zeros(ltransfers-1,1);
 rpga = zeros(ltransfers-1,1);
 dvdsm = zeros(ltransfers,1);
-vilm_arcs = repmat(struct('vinf_out',[],'body','','jd0',[],'T_p',[], ...
-    'N',[],'M',[],'apsis_flag',[],'mu_sun',[],'search_nu',[]), ltransfers, 1);
+vilm_arcs = repmat(struct('vinf_out',[],'body','','jd0',[],'T_p',[], 'N',[],'M',[],'apsis_flag',[],'mu_sun',[],'search_nu',[], 'vinfi_req',[],'vinfo_req',[],'res_flag',[]), ltransfers, 1);
 
 % Dates of encounters with planets
 jd2k(1) = jd2k0;
@@ -74,10 +71,35 @@ for i = 1:lplanets
     [r(i,:), v(i,:)] = GetBodyICF(planets{i}, jd2k(i), mu, 1);
 end
 
-% Detect resonant legs (same planet at consecutive encounters)
+% Build N and M arrays per length transfers.
+[N_per_leg, flagN] = scalar2LengthN(N, ltransfers);
+[M_per_leg, flagM] = scalar2LengthN(M, ltransfers);
+
+if flagN ~= 0 || flagM ~= 0
+    return;
+end
+
+% Detect resonant legs: same planet at consecutive encounters and
+% tofs(i) matches the N:M resonant period (M * T_p) within tolerance.
 is_vilm = false(ltransfers, 1);
 for i = 1:ltransfers
-    if strcmp(planets{i}, planets{i+1})
+    if ~strcmp(planets{i}, planets{i+1})
+        continue;
+    end
+    m_val = M_per_leg(i);
+    if isnan(m_val)
+        continue;
+    end
+
+    % Orbital period of the resonant body
+    [sma_p, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(planets{i}, jd2k(i));
+    T_p_s = 2*pi * sqrt(sma_p^3 / mu);
+
+    % Resonant tof
+    tof_res = m_val * T_p_s / days2secs;
+
+    tol_days = 2;
+    if abs(tofs(i) - tof_res) < tol_days
         is_vilm(i) = true;
     end
 end
@@ -104,13 +126,10 @@ end
 
 
 % Resonant VILM orbits
-vilm_count = 0;
-
 for i = 1:ltransfers
     if ~is_vilm(i)
         continue;
     end
-    vilm_count = vilm_count + 1;
 
     % Determine resonance position in the sequence
     if i == 1
@@ -121,44 +140,35 @@ for i = 1:ltransfers
         res_flag = 2; % Intermediate: full VILM cost
     end
 
-    % Assign N and M
-    if isscalar(N)
-        n_val = N;
-    else
-        n_val = N(vilm_count);
-    end
-
-    if isscalar(M)
-        m_val = M;
-    else
-        m_val = M(vilm_count);
-    end
+    % N and M for this leg (indexed by transfer index, not by counter)
+    n_val = N_per_leg(i);
+    m_val = M_per_leg(i);
 
     % Automatic apsis flag based on resonance ratio
     if m_val > n_val
-        apsis_flag = 1; % Outer orbit: DSM near apoapsis
+        apsis_flag = 1; % Outer transfer: anchor the DSM scan at apoapsis
     elseif n_val > m_val
-        apsis_flag = 0; % Inner orbit: DSM near periapsis
+        apsis_flag = 0; % Inner transfer: anchor the DSM scan at periapsis
     else
-        apsis_flag = 1; % 1:1 resonance: default to apoapsis
+        apsis_flag = 1; % 1:1 resonance: default scan anchor at apoapsis
     end
 
     % Extract v-infinity vectors from adjacent Lambert arcs
     if res_flag == 1
-        vinfi = [0, 0, 0]; % No inbound arc
-        vinfo = vd(i+1,:) - v(i+1,:);
+        vinfi_req = [0, 0, 0]; % No inbound arc
+        vinfo_req = vd(i+1,:) - v(i+1,:);
     elseif res_flag == 3
-        vinfi = va(i-1,:) - v(i,:);
-        vinfo = [0, 0, 0]; % No outbound arc
+        vinfi_req = va(i-1,:) - v(i,:);
+        vinfo_req = [0, 0, 0]; % No outbound arc
     else
-        vinfi = va(i-1,:) - v(i,:);
-        vinfo = vd(i+1,:) - v(i+1,:);
+        vinfi_req = va(i-1,:) - v(i,:);
+        vinfo_req = vd(i+1,:) - v(i+1,:);
     end
 
     p_name = planets{i};
 
     % Optimize the full VILM sequence
-    [vout, ~, dV_GA1, dV_DSM, dV_GA2, ~, va_arr, ~, vilm_arc_i, rp_GA1, rp_GA2] = optimizeOutgoingVInfinityVILM(p_name, jd2k(i), vinfi, vinfo, n_val, m_val, apsis_flag, mu, res_flag);
+    [vout, ~, dV_GA1, dV_DSM, dV_GA2, ~, va_arr, ~, vilm_arc_i, rp_GA1, rp_GA2] = optimizeOutgoingVInfinityVILM(p_name, jd2k(i), vinfi_req, vinfo_req, n_val, m_val, apsis_flag, mu, res_flag, opts);
 
     vilm_arcs(i) = vilm_arc_i;
 
@@ -205,3 +215,6 @@ for i = 1:(ltransfers-1)
 end
 
 end
+
+
+

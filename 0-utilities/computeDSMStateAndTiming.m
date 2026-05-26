@@ -36,17 +36,14 @@ function [flag_Res, r_m_out, v_m_minus_out, tof_lambert_out, v_sc0] = computeDSM
     v_sc0 = orb_init.v_sc0;
 
     % Compute DSM true anomaly from the scanned angle
-    offset = 1e-3;
     if apsis_flag == 1
-        nu_m = pi + offset - nu_DSM;
+        nu_m = pi - nu_DSM;
     else
-        nu_m = 2*pi + offset - nu_DSM;
+        nu_m = -nu_DSM;
     end
 
     % Wrap to [0, 2*pi)
-    if nu_m < 0
-        nu_m = nu_m + 2*pi;
-    end
+    nu_m = mod(nu_m, 2*pi);
 
     % Time of flight from departure to DSM
     Em = 2.0 * atan(sqrt((1.0 - orb_init.ecc) / (1.0 + orb_init.ecc)) * tan(nu_m / 2.0));

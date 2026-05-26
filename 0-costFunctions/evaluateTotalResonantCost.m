@@ -1,12 +1,12 @@
-function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1_out, rp2_out] = evaluateTotalResonantCost(vinf_out, vinfi, vinfo, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, full_output_flag)
+function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1_out, rp2_out] = evaluateTotalResonantCost(vinf_out, vinfi_req, vinfo_req, body, jd0, T_p, N, M, apsis_flag, mu_sun, mu_planet, vmr_safety, res_flag, search_nu_handle, full_output_flag)
 %   Evaluates the total VILM Delta-V cost (dV_GA1 + dV_DSM + dV_GA2) for a
 %   given outgoing v-infinity vector. Calls findOptimalDSMParameters to
 %   find the optimal DSM, then computes the gravity assist costs.
 %
 % Inputs:
 %   vinf_out: outgoing v-infinity vector at the resonant body [km/s]
-%   vinfi: inbound v-infinity vector at GA1 [km/s]
-%   vinfo: desired outbound v-infinity vector at GA2 [km/s]
+%   vinfi_req: inbound v-infinity vector at GA1 [km/s]
+%   vinfo_req: desired outbound v-infinity vector at GA2 [km/s]
 %   body: identifier for the planetary body
 %   jd0: departure epoch
 %   T_p: orbital period of the resonant body [s]
@@ -46,6 +46,9 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 % Adria Sola Foixench
 % April 2026
 
+    % Track how many times the cost is evaluated
+    costEvalCounter('inc');
+
     % Initialize outputs
     dV_total = Inf;
     dV_GA1 = NaN;
@@ -61,14 +64,14 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 
     % Magnitudes of the v-infinity vectors
     vinfon = norm(vinf_out);
-    vinfin = norm(vinfi);
+    vinfin = norm(vinfi_req);
 
     if vinfon < 1e-9
         return;
     end
 
     % 1. DSM cost
-    [dV_DSM, ~, ~, ~, ~, r_m_sol, v_m_minus_sol, v_m_plus_sol, vinf_in_sol, va_sol] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, true);
+    [dV_DSM, ~, ~, ~, r_m_sol, v_m_minus_sol, v_m_plus_sol, vinf_in_sol, va_sol] = findOptimalDSMParameters(vinf_out, body, jd0, T_p, N, M, apsis_flag, mu_sun, search_nu_handle, true);
 
     if isnan(dV_DSM) || isinf(dV_DSM)
         dV_DSM = NaN;
@@ -76,7 +79,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
     end
 
     
-    % 2. GA1 cost: deflection from vinfi to vinf_out
+    % 2. GA1 cost: deflection from vinfi_req to vinf_out
     if res_flag == 1
         % Initial leg
         dV_GA1 = 0;
@@ -86,7 +89,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
         end
         % Deflection angle between inbound and outgoing v-infinity
 
-        cos_d1 = dot(vinfi, vinf_out) / (vinfin * vinfon);
+        cos_d1 = dot(vinfi_req, vinf_out) / (vinfin * vinfon);
         delta1 = acos(cos_d1);
 
         [dV_GA1, rp1] = GA_PGA2_Rp(vinfin, vinfon, delta1, mu_planet);
@@ -101,21 +104,21 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
     end
 
     
-    % 3. GA2 cost: deflection from vinf_in to vinfo
+    % 3. GA2 cost: deflection from vinf_in to vinfo_req
     if res_flag == 3
         % Arrival leg
         dV_GA2 = 0;
     else
         vinf_in_vec = vinf_in_sol(:)';
         vinf_in_mag = norm(vinf_in_vec);
-        vinfon_req = norm(vinfo);
+        vinfon_req = norm(vinfo_req);
 
         if vinf_in_mag < 1e-9 || vinfon_req < 1e-9
             return;
         end
 
         % Deflection angle between arrival v-infinity and required outbound
-        cos_d2 = dot(vinf_in_vec, vinfo) / (vinf_in_mag * vinfon_req);
+        cos_d2 = dot(vinf_in_vec, vinfo_req) / (vinf_in_mag * vinfon_req);
         delta2 = acos(cos_d2);
 
         [dV_GA2, rp2] = GA_PGA2_Rp(vinf_in_mag, vinfon_req, delta2, mu_planet);
