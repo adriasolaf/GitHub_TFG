@@ -151,7 +151,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
             % For each discrete branch, minimize only over nu_DSM.
             f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lp_try, config.n_val, ...
                 config.apsis_flag, config.mu_sun, false, model.orb_init, model.planets_state);
-            nu_try = config.search_nu(f_nu, 0, pi - 1e-3);
+            nu_try = config.search_nu(f_nu, 0, 2*pi);
             if isnan(nu_try)
                 continue;
             end

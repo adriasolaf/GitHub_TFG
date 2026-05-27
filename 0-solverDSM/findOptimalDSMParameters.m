@@ -77,8 +77,7 @@ function [dV_best, nu_best, revs_best, lp_best, r_m, v_m_minus, v_m_plus, vinf_i
     
     % Mean motion properties for computeDSMStateAndTiming
     n_motion = sqrt(mu_sun / (sma^3));
-    E0 = 2.0 * atan(sqrt((1.0 - ecc) / (1.0 + ecc)) * tan(nu0 / 2.0));
-    M0 = E0 - ecc * sin(E0);
+    M0 = trueAnomalyToMeanAnomaly(nu0, ecc);
 
     % Store everything in the orb_init struct
     orb_init.sma = sma; 

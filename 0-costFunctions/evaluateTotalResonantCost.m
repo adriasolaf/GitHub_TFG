@@ -90,6 +90,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
         % Deflection angle between inbound and outgoing v-infinity
 
         cos_d1 = dot(vinfi_req, vinf_out) / (vinfin * vinfon);
+        cos_d1 = max(-1.0, min(1.0, cos_d1));
         delta1 = acos(cos_d1);
 
         [dV_GA1, rp1] = GA_PGA2_Rp(vinfin, vinfon, delta1, mu_planet);
@@ -119,6 +120,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 
         % Deflection angle between arrival v-infinity and required outbound
         cos_d2 = dot(vinf_in_vec, vinfo_req) / (vinf_in_mag * vinfon_req);
+        cos_d2 = max(-1.0, min(1.0, cos_d2));
         delta2 = acos(cos_d2);
 
         [dV_GA2, rp2] = GA_PGA2_Rp(vinf_in_mag, vinfon_req, delta2, mu_planet);

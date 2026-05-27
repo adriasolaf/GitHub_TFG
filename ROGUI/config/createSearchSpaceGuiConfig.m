@@ -62,30 +62,50 @@ function config = createSearchSpaceGuiConfig(inputConfig)
         [config.r(idx, :), config.v(idx, :)] = GetBodyICF(config.planets{idx}, config.jd2k(idx), config.mu_sun, 1);
     end
 
+    [config.N_per_leg, flagN] = scalar2LengthN(config.N, nPlanets - 1);
+    [config.M_per_leg, flagM] = scalar2LengthN(config.M, nPlanets - 1);
+    if flagN ~= 0 || flagM ~= 0
+        error('ROGUI:InvalidConfig', 'N and M must be scalars or vectors with one value per transfer leg.');
+    end
+
     % ROGUI follows the core repository convention: a resonant leg is a
-    % transfer whose endpoints are the same body in consecutive positions.
+    % same-body transfer whose TOF matches M planetary periods.
     config.is_vilm = false(nPlanets - 1, 1);
     for idx = 1:(nPlanets - 1)
-        config.is_vilm(idx) = strcmp(config.planets{idx}, config.planets{idx + 1});
+        if ~strcmp(config.planets{idx}, config.planets{idx + 1})
+            continue;
+        end
+
+        m_val_try = config.M_per_leg(idx);
+        if isnan(m_val_try)
+            continue;
+        end
+
+        [sma_p, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(config.planets{idx}, config.jd2k(idx));
+        T_p_s = 2*pi * sqrt(sma_p^3 / config.mu_sun);
+        tof_res_days = m_val_try * T_p_s / config.days2secs;
+        tol_days = 2;
+
+        config.is_vilm(idx) = abs(config.tofs(idx) - tof_res_days) < tol_days;
     end
 
     resonantIndices = find(config.is_vilm);
     if isempty(resonantIndices)
-        error('ROGUI:InvalidConfig', 'No resonant leg found. Use consecutive equal planet names, e.g. Earth,Earth.');
+        error('ROGUI:InvalidConfig', 'No time-consistent resonant leg found. Use consecutive equal planet names and TOF ~= M*T_p.');
     end
     if isempty(config.resonantIndex)
         config.resonantIndex = resonantIndices(1);
     end
     if ~ismember(config.resonantIndex, resonantIndices)
-        error('ROGUI:InvalidConfig', 'Selected resonantIndex is not a same-planet transfer.');
+        error('ROGUI:InvalidConfig', 'Selected resonantIndex is not a time-consistent same-planet resonant transfer.');
     end
 
-    % Scalar N/M values apply to all resonant legs; vector N/M values are
-    % indexed by the selected resonant leg ordinal.
+    % Scalar N/M values apply to all transfer legs; vector N/M values are
+    % indexed by transfer leg, matching MGA2_PGA2.
     config.resonantIndices = resonantIndices;
     config.resonanceOrdinal = find(resonantIndices == config.resonantIndex, 1);
-    config.n_val = pickResonanceValue(config.N, config.resonanceOrdinal);
-    config.m_val = pickResonanceValue(config.M, config.resonanceOrdinal);
+    config.n_val = config.N_per_leg(config.resonantIndex);
+    config.m_val = config.M_per_leg(config.resonantIndex);
     config.apsis_flag = inferApsisFlag(config.n_val, config.m_val);
     config.res_flag = inferResFlag(config.resonantIndex, nPlanets - 1);
     config.body = config.planets{config.resonantIndex};
@@ -116,11 +136,10 @@ function config = defaultConfig()
     config.flybySafetyFactor = 1.05;
     config.innerScanPoints = 80;
     config.innerRefineIterations = 30;
-    config.outerVmag = linspace(0.5, 8.0, 8);
-    config.outerTheta = linspace(-pi, pi, 13);
-    config.outerTheta = config.outerTheta(1:end-1);
+    config.outerVmag = 1:0.5:10;
+    config.outerTheta = deg2rad(-180:10:180);
     config.outerPhi = 0;
-    config.innerNu = linspace(0, pi - 1e-3, 120);
+    config.innerNu = linspace(0, 2*pi, 120);
     config.fixedLp = [];
 end
 
@@ -157,14 +176,6 @@ end
 
 function values = normalizeResonanceVector(values)
     values = values(:)';
-end
-
-function value = pickResonanceValue(values, ordinal)
-    if isscalar(values)
-        value = values;
-    else
-        value = values(ordinal);
-    end
 end
 
 function apsisFlag = inferApsisFlag(N, M)

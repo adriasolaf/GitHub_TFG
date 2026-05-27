@@ -46,8 +46,7 @@ function [flag_Res, r_m_out, v_m_minus_out, tof_lambert_out, v_sc0] = computeDSM
     nu_m = mod(nu_m, 2*pi);
 
     % Time of flight from departure to DSM
-    Em = 2.0 * atan(sqrt((1.0 - orb_init.ecc) / (1.0 + orb_init.ecc)) * tan(nu_m / 2.0));
-    Mm = Em - orb_init.ecc * sin(Em);
+    Mm = trueAnomalyToMeanAnomaly(nu_m, orb_init.ecc);
 
     delta_M = Mm - orb_init.M0;
     if delta_M <= 0

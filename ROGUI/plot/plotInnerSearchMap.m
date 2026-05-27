@@ -66,13 +66,20 @@ function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName)
 
     % Draw individual branch samples only. A line would falsely imply a
     % single-valued continuous curve through different branch families.
-    h.points = scatter(ax, x(valid), y(valid), 24, x(valid), 'filled');
+    h.points = scatter(ax, x(valid), y(valid), 24, y(valid), 'filled');
     colormap(ax, 'turbo');
     h.colorbar = colorbar(ax);
-    ylabel(h.colorbar, '\nu_{DSM} [deg]');
+    ylabel(h.colorbar, metricName, 'Interpreter', 'none');
     xlabel(ax, '\nu_{DSM} [deg]');
     ylabel(ax, metricName, 'Interpreter', 'none');
     title(ax, 'Inner branch samples');
+    xlim(ax, [0 360]);
+    if strcmp(metricName, 'totalDv')
+        ylim(ax, [0 100]);
+    else
+        ylim(ax, 'auto');
+        xlim(ax, [0 360]);
+    end
 
     marker = selectedMarker(selectedPoint, innerMap, metricName);
     if ~isempty(marker)
@@ -113,4 +120,6 @@ function showEmptyAxes(ax, message)
     xlabel(ax, '\nu_{DSM} [deg]');
     ylabel(ax, '\DeltaV [km/s]');
     title(ax, 'Inner branch samples');
+    xlim(ax, [0 360]);
+    ylim(ax, [0 100]);
 end

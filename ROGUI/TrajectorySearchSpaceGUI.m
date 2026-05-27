@@ -67,16 +67,16 @@ function fig = TrajectorySearchSpaceGUI()
         app.UI.resonantIndex = addText(grid, '', 6);
 
         addLabel(grid, '|vinf| grid', 7);
-        app.UI.vmag = addText(grid, '1:1:8', 7);
+        app.UI.vmag = addText(grid, '1:0.5:10', 7);
 
         addLabel(grid, 'theta grid [deg]', 8);
-        app.UI.theta = addText(grid, '-180:30:150', 8);
+        app.UI.theta = addText(grid, '-180:10:180', 8);
 
         addLabel(grid, 'phi grid [deg]', 9);
         app.UI.phi = addText(grid, '0', 9);
 
         addLabel(grid, 'nu grid [deg]', 10);
-        app.UI.nu = addText(grid, '1:3:177', 10);
+        app.UI.nu = addText(grid, '0:3:360', 10);
 
         addLabel(grid, 'nu scan pts', 11);
         app.UI.innerScanPoints = addNumeric(grid, 80, 11);
@@ -309,10 +309,9 @@ function fig = TrajectorySearchSpaceGUI()
     end
 
     function refreshInnerPlot()
-        % The inner plot always shows total cost so the selected trajectory
-        % marker corresponds directly to the metric table.
         app = fig.UserData;
-        handles = plotInnerSearchMap(app.UI.innerAxes, app.Results.innerMap, app.Results.selectedInner, 'totalDv');
+        metric = app.UI.metric.Value;
+        handles = plotInnerSearchMap(app.UI.innerAxes, app.Results.innerMap, app.Results.selectedInner, metric);
         wireClickHandles(handles, @onInnerAxesClicked);
     end
 
@@ -359,7 +358,23 @@ function fig = TrajectorySearchSpaceGUI()
             return;
         end
         rows = data(feasible, :);
-        [~, idx] = min(abs(rows.nu - nu));
+        metric = app.UI.metric.Value;
+        if any(strcmp(metric, rows.Properties.VariableNames)) && isfinite(point(1, 2))
+            x = rad2deg(rows.nu);
+            y = rows.(metric);
+            dx = x - point(1, 1);
+            dy = y - point(1, 2);
+            finite = isfinite(dx) & isfinite(dy);
+            if any(finite)
+                finiteIdx = find(finite);
+                [~, localIdx] = min(dx(finite).^2 + dy(finite).^2);
+                idx = finiteIdx(localIdx);
+            else
+                [~, idx] = min(abs(rows.nu - nu));
+            end
+        else
+            [~, idx] = min(abs(rows.nu - nu));
+        end
         selectInnerCandidate(rows(idx, :));
     end
 
@@ -367,6 +382,9 @@ function fig = TrajectorySearchSpaceGUI()
         app = fig.UserData;
         if ~isempty(app.Results.outerMap)
             refreshOuterPlot();
+        end
+        if ~isempty(app.Results.innerMap)
+            refreshInnerPlot();
         end
     end
 

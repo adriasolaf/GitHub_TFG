@@ -69,7 +69,6 @@ cla(ax);
 hold(ax, 'on');
 box(ax, 'on');
 grid(ax, 'on');
-axis(ax, 'equal');
 view(ax, oldView);
 
 AU = 1.49597871E8;
@@ -88,7 +87,7 @@ try
     ylabel(ax, 'y [AU]');
     zlabel(ax, 'z [AU] x10');
     title(ax, 'Trajectory');
-    daspect(ax, [1 1 1]);
+    applyTrajectoryAxes(ax);
     view(ax, oldView);
 catch
     cla(ax);
@@ -103,6 +102,22 @@ if isempty([h.planetOrbits(:); h.planets(:); h.spacecraft(:); h.dsm(:)])
 end
 
 hold(ax, 'off');
+end
+
+function applyTrajectoryAxes(ax)
+axis(ax, 'tight');
+daspect(ax, [1 1 1]);
+axis(ax, 'vis3d');
+
+xl = xlim(ax);
+yl = ylim(ax);
+xSpan = diff(xl);
+ySpan = diff(yl);
+xySpan = max([xSpan, ySpan, eps]);
+xCtr = mean(xl);
+yCtr = mean(yl);
+xlim(ax, xCtr + 0.5 * xySpan * [-1 1]);
+ylim(ax, yCtr + 0.5 * xySpan * [-1 1]);
 end
 
 function handles = plotPlanetOrbits(ax, orbP, AU, zScale)

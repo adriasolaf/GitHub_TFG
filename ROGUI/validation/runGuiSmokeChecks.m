@@ -29,7 +29,7 @@ function results = runGuiSmokeChecks()
         cfgInput.outerVmag = linspace(2.0, 4.0, 2);
         cfgInput.outerTheta = linspace(-0.5, 0.5, 2);
         cfgInput.outerPhi = 0;
-        cfgInput.innerNu = linspace(0.05, pi - 0.05, 8);
+        cfgInput.innerNu = linspace(0.05, 2*pi - 0.05, 8);
         cfgInput.innerScanPoints = 20;
         cfgInput.innerRefineIterations = 10;
 

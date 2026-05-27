@@ -151,8 +151,7 @@ end
 % Store the compact orbit state expected by computeSingleDSMTransferCost.
 % M0 anchors the time from departure to the chromosome-selected DSM anomaly.
 n_motion = sqrt(scn.mu_sun / sma^3);
-E0 = 2.0 * atan(sqrt((1.0 - ecc) / (1.0 + ecc)) * tan(nu0 / 2.0));
-M0 = E0 - ecc * sin(E0);
+M0 = trueAnomalyToMeanAnomaly(nu0, ecc);
 
 model.orb_init.sma = sma;
 model.orb_init.ecc = ecc;
