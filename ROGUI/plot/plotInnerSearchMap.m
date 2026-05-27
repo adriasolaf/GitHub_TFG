@@ -1,11 +1,24 @@
 function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName)
-%plotInnerSearchMap Plot branch-resolved inner DSM samples as points.
-%   Multiple values at the same nu are expected when several revolution or
-%   Lambert branches are shown. nu is displayed in degrees.
+%plotInnerSearchMap Plot inner DSM search map
+%   Plots branch-resolved DSM anomaly samples for one selected outgoing
+%   v-infinity vector. nu is displayed in degrees.
 %
-%   The color encodes nu_DSM itself as a debugging aid. The vertical axis is
-%   the selected metric, usually total delta-v. Samples are not connected by
-%   a line because different branches can coexist at the same nu.
+% Inputs:
+%   ax: target MATLAB axes
+%   innerMap: inner search result table
+%   selectedPoint: selected inner row or empty
+%   metricName: table variable used on the vertical axis
+%
+% Outputs:
+%   h: plot graphics handle structure
+%
+% Example:
+%   [ h ] = plotInnerSearchMap ( ax, innerMap, bestRow, 'totalDv' );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 1 || ~isgraphics(ax, 'axes')
         ax = gca;

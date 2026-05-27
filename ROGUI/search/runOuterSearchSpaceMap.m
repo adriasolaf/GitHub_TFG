@@ -1,20 +1,23 @@
 function [outerMap, bestRow] = runOuterSearchSpaceMap(config, options)
-%runOuterSearchSpaceMap Evaluate the outer VILM search-space grid.
-%   Each grid point fixes vinf_out and delegates DSM placement to the
-%   existing inner optimizer through evaluateTotalResonantCost.
+%runOuterSearchSpaceMap Outer resonant search map
+%   Sweeps outgoing v-infinity magnitude and direction. Each sampled point
+%   delegates DSM placement to the resonant inner optimizer.
 %
-%   [outerMap, bestRow] = runOuterSearchSpaceMap(config, options) sweeps
-%   the outer variables:
+% Inputs:
+%   config: normalized ROGUI mission/search configuration structure
+%   options: optional callbacks structure with cancelFcn and progressFcn
 %
-%       |vinf_out|, theta, phi
+% Outputs:
+%   outerMap: table with sampled outer candidates and cost diagnostics
+%   bestRow: best feasible row from outerMap
 %
-%   and records the optimized local resonant-leg cost for each point. The
-%   returned outerMap table is the data source for the PCP-like outer plot.
-%   It stores both GUI variables and diagnostic quantities such as best
-%   nu_DSM, branch flags, DSM point, periapsis radii, and failure reason.
+% Example:
+%   [ outerMap, bestRow ] = runOuterSearchSpaceMap ( config );
 %
-%   options.cancelFcn and options.progressFcn are optional callbacks used
-%   by the GUI to keep long maps responsive.
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 2
         options = struct();
@@ -66,19 +69,19 @@ function row = evaluateOuterPoint(config, vmag, theta, phi, vinf_out)
 
     try
         % Auto branch mode uses the repository's reference optimizer. Fixed
-        % branch mode uses the local equivalent below so the GUI can enforce
-        % user-selected lw/lp values without changing core functions.
-        if isempty(config.fixedLw) && isempty(config.fixedLp)
-            [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1, rp2] = evaluateTotalResonantCost( ...
+        % lp mode uses the local equivalent below so the GUI can enforce a
+        % selected Lambert period branch without changing core functions.
+        if isempty(config.fixedLp)
+            [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, ~, ~, rp1, rp2] = evaluateTotalResonantCost( ...
                 vinf_out, config.vinfi, config.vinfo, config.body, config.jd0, config.T_p, config.n_val, config.m_val, ...
                 config.apsis_flag, config.mu_sun, config.mu_planet, config.vmr_safety, config.res_flag, config.search_nu, true);
 
-            [dV_best, nu_best, revs_best, lw_best, lp_best] = findOptimalDSMParameters( ...
+            [dV_best, nu_best, revs_best, lp_best] = findOptimalDSMParameters( ...
                 vinf_out, config.body, config.jd0, config.T_p, config.n_val, config.m_val, ...
                 config.apsis_flag, config.mu_sun, config.search_nu, false);
         else
-            [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1, rp2, ...
-                dV_best, nu_best, revs_best, lw_best, lp_best] = evaluateFixedBranchOuterPoint(config, vinf_out);
+            [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, ~, ~, rp1, rp2, ...
+                dV_best, nu_best, revs_best, lp_best] = evaluateFixedBranchOuterPoint(config, vinf_out);
         end
 
         if ~isfinite(dV_total)
@@ -92,7 +95,6 @@ function row = evaluateOuterPoint(config, vmag, theta, phi, vinf_out)
         row.dV_GA2 = dV_GA2;
         row.nuBest = nu_best;
         row.revsBest = revs_best;
-        row.lwBest = lw_best;
         row.lpBest = lp_best;
         row.rp1 = rp1;
         row.rp2 = rp2;
@@ -114,9 +116,9 @@ function row = evaluateOuterPoint(config, vmag, theta, phi, vinf_out)
 end
 
 function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plus, rp1, rp2, ...
-    dV_best, nu_best, revs_best, lw_best, lp_best] = evaluateFixedBranchOuterPoint(config, vinf_out)
+    dV_best, nu_best, revs_best, lp_best] = evaluateFixedBranchOuterPoint(config, vinf_out)
     % Local clone of the inner optimizer with branch filters. This keeps
-    % fixed-lw/lp behavior in ROGUI and avoids adding GUI concerns to the
+    % fixed-lp behavior in ROGUI and avoids adding GUI concerns to the
     % scientific solver functions.
 
     dV_total = Inf;
@@ -133,7 +135,6 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
     dV_best = Inf;
     nu_best = NaN;
     revs_best = NaN;
-    lw_best = NaN;
     lp_best = NaN;
 
     [model, status] = prepareInnerDsmModel(config, vinf_out);
@@ -142,29 +143,25 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
     end
 
     % Enumerate the same revolution splits and Lambert branches as
-    % findOptimalDSMParameters, then narrow lw/lp if the GUI fixed them.
+    % findOptimalDSMParameters, then narrow lp if the GUI fixed it.
     for revs_try = (config.n_val - 1):-1:0
         mr_lambert = config.n_val - revs_try - 1;
-        lwValues = branchValues(config.fixedLw, [0, 1]);
         lpValues = branchValues(config.fixedLp, allowedLpValues(mr_lambert));
-        for lw_try = lwValues
-            for lp_try = lpValues
-                % For each discrete branch, minimize only over nu_DSM.
-                f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lw_try, lp_try, config.n_val, ...
-                    config.apsis_flag, config.mu_sun, false, model.orb_init, model.planets_state);
-                nu_try = config.search_nu(f_nu, 0, pi - 1e-3);
-                if isnan(nu_try)
-                    continue;
-                end
-                dV_try = computeSingleDSMTransferCost(nu_try, revs_try, lw_try, lp_try, config.n_val, ...
-                    config.apsis_flag, config.mu_sun, false, model.orb_init, model.planets_state);
-                if dV_try < dV_best
-                    dV_best = dV_try;
-                    nu_best = nu_try;
-                    revs_best = revs_try;
-                    lw_best = lw_try;
-                    lp_best = lp_try;
-                end
+        for lp_try = lpValues
+            % For each discrete branch, minimize only over nu_DSM.
+            f_nu = @(nu) computeSingleDSMTransferCost(nu, revs_try, lp_try, config.n_val, ...
+                config.apsis_flag, config.mu_sun, false, model.orb_init, model.planets_state);
+            nu_try = config.search_nu(f_nu, 0, pi - 1e-3);
+            if isnan(nu_try)
+                continue;
+            end
+            dV_try = computeSingleDSMTransferCost(nu_try, revs_try, lp_try, config.n_val, ...
+                config.apsis_flag, config.mu_sun, false, model.orb_init, model.planets_state);
+            if dV_try < dV_best
+                dV_best = dV_try;
+                nu_best = nu_try;
+                revs_best = revs_try;
+                lp_best = lp_try;
             end
         end
     end
@@ -175,7 +172,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 
     % Recompute the best branch in full-output mode so the GUI can plot the
     % DSM point, arrival state, and selected trajectory.
-    [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_best, revs_best, lw_best, lp_best, ...
+    [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost(nu_best, revs_best, lp_best, ...
         config.n_val, config.apsis_flag, config.mu_sun, true, model.orb_init, model.planets_state);
     [dV_GA1, rp1, ok1] = gravityAssistCost(config.vinfi, vinf_out, config.mu_planet, config.vmr_safety, config.res_flag == 1);
     [dV_GA2, rp2, ok2] = gravityAssistCost(vinf_in, config.vinfo, config.mu_planet, config.vmr_safety, config.res_flag == 3);
@@ -232,7 +229,7 @@ function row = emptyOuterRow()
     row = struct('vmag', NaN, 'theta', NaN, 'phi', NaN, ...
         'vinfX', NaN, 'vinfY', NaN, 'vinfZ', NaN, ...
         'totalDv', Inf, 'dV_GA1', NaN, 'dV_DSM', NaN, 'dV_GA2', NaN, ...
-        'nuBest', NaN, 'revsBest', NaN, 'lwBest', NaN, 'lpBest', NaN, ...
+        'nuBest', NaN, 'revsBest', NaN, 'lpBest', NaN, ...
         'rp1', NaN, 'rp2', NaN, ...
         'vinfInX', NaN, 'vinfInY', NaN, 'vinfInZ', NaN, ...
         'vaX', NaN, 'vaY', NaN, 'vaZ', NaN, ...

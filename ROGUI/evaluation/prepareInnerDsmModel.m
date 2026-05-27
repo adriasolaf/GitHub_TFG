@@ -1,12 +1,23 @@
 function [model, status] = prepareInnerDsmModel(config, vinf_out)
-%prepareInnerDsmModel Build DSM search state for a fixed outgoing vinf.
-%   This mirrors the setup section of findOptimalDSMParameters so GUI
-%   sweeps can expose each nu/revolution/Lambert branch explicitly.
+%prepareInnerDsmModel Prepare inner DSM model
+%   Builds the compact conic and planet-state structures needed to evaluate
+%   DSM samples for one fixed outgoing v-infinity vector.
 %
-%   The output model contains the initial heliocentric conic, final planet
-%   state after M planetary revolutions, and the compact structs expected by
-%   computeSingleDSMTransferCost. It is shared by outer fixed-branch logic,
-%   inner diagnostic maps, and trajectory reconstruction.
+% Inputs:
+%   config: normalized ROGUI mission/search configuration structure
+%   vinf_out: outgoing hyperbolic excess velocity vector [km s^-1]
+%
+% Outputs:
+%   model: DSM model structure for computeSingleDSMTransferCost
+%   status: status structure with ok flag and message
+%
+% Example:
+%   [ model, status ] = prepareInnerDsmModel ( config, vinf_out );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     status = struct('ok', false, 'message', '');
     model = struct();

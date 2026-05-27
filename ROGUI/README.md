@@ -18,9 +18,9 @@ The default case mirrors the Galileo-style `Earth,Venus,Earth,Earth,Jupiter` sce
 ROGUI separates the resonant optimization into two visible layers:
 
 - Outer map: outgoing hyperbolic excess velocity after the resonant flyby, parameterized by `|vinf_out|`, `theta`, and `phi`.
-- Inner map: DSM anomaly `nu_DSM` and branch choices for `revs_before`, `lw`, and `lp`.
+- Inner map: DSM anomaly `nu_DSM` and branch choices for `revs_before` and `lp`.
 
-Each outer point runs an inner optimization unless `lw` or `lp` are fixed in the GUI. The outer map color is the optimized local resonant-leg cost. Selecting an outer point recomputes the branch-resolved inner map for that fixed `vinf_out`. Selecting an inner point reconstructs the associated trajectory.
+Each outer point runs an inner optimization unless `lp` is fixed in the GUI. The outer map color is the optimized local resonant-leg cost. Selecting an outer point recomputes the branch-resolved inner map for that fixed `vinf_out`. Selecting an inner point reconstructs the associated trajectory.
 
 ## User-Facing Units
 
@@ -72,7 +72,7 @@ Cache-key generation and lightweight smoke checks.
 1. Run `runGuiSmokeChecks()` after changing wrappers or plotting helpers.
 2. Open `TrajectorySearchSpaceGUI`.
 3. Keep grids coarse while testing behavior.
-4. Use `lw branch` and `lp branch` as `Auto` for baseline behavior; set them to `0` or `1` to isolate branch effects.
+4. Use `lp branch` as `Auto` for baseline behavior; set it to `0` or `1` to isolate Lambert period branch effects.
 5. Click or use arrow keys on the outer map to inspect neighboring solutions.
 6. Click branch samples in the inner map to force a specific DSM branch into the trajectory view.
 

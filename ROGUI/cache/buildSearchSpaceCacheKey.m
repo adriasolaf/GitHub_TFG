@@ -1,9 +1,22 @@
 function key = buildSearchSpaceCacheKey(config, item)
-%buildSearchSpaceCacheKey Create deterministic cache keys for GUI results.
-%   ROGUI caches selected trajectory reconstructions because click and
-%   arrow-key navigation often revisit the same outer/inner case. The key
-%   includes mission identity plus the candidate variables that affect the
-%   resulting trajectory.
+%buildSearchSpaceCacheKey Build ROGUI cache key
+%   Creates a deterministic string key from the mission configuration and
+%   optional selected outer or inner search row.
+%
+% Inputs:
+%   config: normalized ROGUI mission/search configuration structure
+%   item: optional table row or structure with candidate variables
+%
+% Outputs:
+%   key: deterministic cache key string
+%
+% Example:
+%   [ key ] = buildSearchSpaceCacheKey ( config, selectedRow );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     mission = strjoin(config.planets, '-');
     base = sprintf('%s|jd%.6f|tof%s|N%s|M%s|leg%d', mission, config.jd2k0, ...
@@ -22,7 +35,7 @@ function key = buildSearchSpaceCacheKey(config, item)
     % enough for GUI cache reuse while still distinguishing neighboring
     % grid samples.
     parts = {base};
-    names = {'vmag', 'theta', 'phi', 'nu', 'revs_before', 'lw', 'lp', 'vinfX', 'vinfY', 'vinfZ'};
+    names = {'vmag', 'theta', 'phi', 'nu', 'revs_before', 'lp', 'vinfX', 'vinfY', 'vinfZ'};
     for idx = 1:numel(names)
         if isfield(item, names{idx})
             parts{end + 1} = sprintf('%s=%.10g', names{idx}, item.(names{idx})); %#ok<AGROW>

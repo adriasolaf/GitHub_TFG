@@ -1,22 +1,21 @@
 function config = createSearchSpaceGuiConfig(inputConfig)
-%createSearchSpaceGuiConfig Validate and enrich a ROGUI mission config.
-%   The GUI and validation scripts pass simple user inputs here. This
-%   function derives the resonant-leg context needed by the search-space
-%   evaluators without changing the repository's core trajectory routines.
+%createSearchSpaceGuiConfig Create ROGUI configuration
+%   Validates user-facing mission/search inputs and derives the resonant
+%   branch data used by ROGUI search and plotting helpers.
 %
-%   config = createSearchSpaceGuiConfig(inputConfig) accepts a partial
-%   struct using GUI-facing fields (planet sequence, J2000 epoch, TOFs,
-%   resonance ratio, grid definitions, and optional fixed Lambert branch
-%   flags). It returns a normalized struct with:
+% Inputs:
+%   inputConfig: partial configuration structure
 %
-%   - encounter epochs and planet heliocentric states;
-%   - the selected resonant leg and its N:M resonance metadata;
-%   - adjacent Lambert arcs needed to define vinf_i and vinf_o;
-%   - physical constants and search function handles used by ROGUI.
+% Outputs:
+%   config: normalized ROGUI mission/search configuration structure
 %
-%   Public GUI angle fields are converted to radians before this function
-%   is called. Distances are km, velocities are km/s, and public TOFs are
-%   days, matching MGA2_PGA2.
+% Example:
+%   [ config ] = createSearchSpaceGuiConfig ( inputConfig );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 1 || isempty(inputConfig)
         inputConfig = defaultConfig();
@@ -122,7 +121,6 @@ function config = defaultConfig()
     config.outerTheta = config.outerTheta(1:end-1);
     config.outerPhi = 0;
     config.innerNu = linspace(0, pi - 1e-3, 120);
-    config.fixedLw = [];
     config.fixedLp = [];
 end
 

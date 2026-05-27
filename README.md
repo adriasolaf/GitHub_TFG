@@ -9,28 +9,28 @@ The model is based on patched conics, Keplerian two-body propagation, Lambert tr
 ```text
 MGA2_PGA2.m
 TEST_MGA_Plot.m
-Astro/
 0-coreResonantTrajectory/
 0-solverDSM/
 0-solverResonantTrajectory/
 0-costFunctions/
 0-searchAlgorithms/
 0-utilities/
-ROGUI/
 1-graphs/
+Astro/
+ROGUI/
 ```
 
 - `MGA2_PGA2.m`: main trajectory API for the patched-conics MGA/VILM workflow.
 - `TEST_MGA_Plot.m`: baseline Galileo-style computation and plotting script.
-- `Astro/`: astrodynamics helpers, body states, Lambert solver, element/state conversions, and flyby utilities.
 - `0-coreResonantTrajectory/`: single DSM transfer construction and cost logic.
 - `0-solverDSM/`: inner DSM optimizer over anomaly, revolution split, and Lambert branch.
 - `0-solverResonantTrajectory/`: outer resonant optimizer over outgoing `v_infinity`.
 - `0-costFunctions/`: resonant total-cost wrappers.
 - `0-searchAlgorithms/`: grid scans, scan/refine, and ternary search helpers.
 - `0-utilities/`: trajectory reconstruction utilities.
-- `ROGUI/`: Resonant Orbit GUI and its script-callable support layer.
 - `1-graphs/`: generated plots and figures.
+- `Astro/`: astrodynamics helpers, body states, Lambert solver, element/state conversions, and flyby utilities.
+- `ROGUI/`: Resonant Orbit GUI and its script-callable support layer.
 
 ## Quick Start
 
@@ -87,7 +87,7 @@ The resonant objective is:
 J = DeltaV_GA1 + DeltaV_DSM + DeltaV_GA2
 ```
 
-where edge resonances omit the missing launch-side or arrival-side flyby term. The optimizer is nested: the outer search varies `vinf_out` magnitude and direction, while the inner search varies `nu_DSM`, revolution split, and Lambert branch flags `lw/lp`.
+where edge resonances omit the missing launch-side or arrival-side flyby term. The optimizer is nested: the outer search varies `vinf_out` magnitude and direction, while the inner search varies `nu_DSM`, revolution split, and Lambert long-period flag `lp`. Lambert transfer direction `lw` is auto-selected internally for the resonant DSM-to-arrival arc.
 
 This is a deterministic patched-conics design model, not a high-fidelity propagator. It excludes third-body perturbations, finite burns, atmosphere, oblateness, solar radiation pressure, and ephemeris uncertainty. The search strategy is heuristic and does not prove a global optimum over all mission sequences, epochs, or TOFs.
 

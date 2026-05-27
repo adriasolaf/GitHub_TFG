@@ -1,11 +1,23 @@
 function traj = evaluateTrajectoryCandidate(config, outerCandidate, innerCandidate)
-%evaluateTrajectoryCandidate Build trajectory data for selected GUI cases.
-%   This reconstructs the configured mission while forcing the selected
-%   resonant outgoing vinf and, when supplied, selected DSM branch.
+%evaluateTrajectoryCandidate Reconstruct selected trajectory
+%   Builds trajectory data for one selected outer candidate and optional
+%   selected inner DSM branch.
 %
-%   The returned traj struct mirrors the main MGA2_PGA2 output fields and
-%   adds GUI-specific plot data. It is deliberately script-callable so a
-%   selected GUI case can be verified outside the interface.
+% Inputs:
+%   config: normalized ROGUI mission/search configuration structure
+%   outerCandidate: outer map row, struct, or vinf_out vector
+%   innerCandidate: optional inner map row or structure
+%
+% Outputs:
+%   traj: reconstructed trajectory and plotting data structure
+%
+% Example:
+%   [ traj ] = evaluateTrajectoryCandidate ( config, bestOuter, bestInner );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 3
         innerCandidate = [];
@@ -33,7 +45,7 @@ end
 function [inner, status] = resolveInnerSelection(config, vinf_out, innerCandidate)
     % If the user has not clicked the inner plot, use the optimizer's best
     % branch. If they have clicked the inner plot, force that exact
-    % nu/revs/lw/lp combination for trajectory reconstruction.
+    % nu/revs/lp combination for trajectory reconstruction.
     status = struct('ok', false, 'message', '');
     inner = struct();
 
@@ -44,17 +56,16 @@ function [inner, status] = resolveInnerSelection(config, vinf_out, innerCandidat
     end
 
     if isempty(innerCandidate)
-        [dV_DSM, nu, revs_before, lw, lp, r_m, v_m_minus, v_m_plus, vinf_in, va] = findOptimalDSMParameters( ...
+        [dV_DSM, nu, revs_before, lp, r_m, v_m_minus, v_m_plus, vinf_in, va] = findOptimalDSMParameters( ...
             vinf_out, config.body, config.jd0, config.T_p, config.n_val, config.m_val, ...
             config.apsis_flag, config.mu_sun, config.search_nu, true);
     else
         innerCandidate = normalizeCandidate(innerCandidate);
         nu = innerCandidate.nu;
         revs_before = innerCandidate.revs_before;
-        lw = innerCandidate.lw;
         lp = innerCandidate.lp;
         [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost( ...
-            nu, revs_before, lw, lp, config.n_val, config.apsis_flag, config.mu_sun, true, model.orb_init, model.planets_state);
+            nu, revs_before, lp, config.n_val, config.apsis_flag, config.mu_sun, true, model.orb_init, model.planets_state);
     end
 
     if ~isfinite(dV_DSM)
@@ -65,7 +76,6 @@ function [inner, status] = resolveInnerSelection(config, vinf_out, innerCandidat
     inner.dV_DSM = dV_DSM;
     inner.nu = nu;
     inner.revs_before = revs_before;
-    inner.lw = lw;
     inner.lp = lp;
     inner.r_m = r_m;
     inner.v_m_minus = v_m_minus;

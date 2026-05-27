@@ -1,11 +1,24 @@
 function h = plotOuterSearchMap(ax, outerMap, selectedPoint, metricName)
-%plotOuterSearchMap Plot the outer ROGUI search map.
-%   GUI-facing angles are displayed in degrees. Input tables still store
-%   theta and phi in radians, matching the numerical model.
+%plotOuterSearchMap Plot outer search map
+%   Plots the outer ROGUI search table over theta, phi, and vmag. Angles in
+%   the table are radians and are displayed in degrees.
 %
-%   If phi has one sampled value, a 2D contour map is used over
-%   theta-vmag. If phi has multiple values, a 3D scatter plot is used over
-%   theta-phi-vmag. The selected outer grid point is drawn as a red marker.
+% Inputs:
+%   ax: target MATLAB axes
+%   outerMap: outer search result table
+%   selectedPoint: selected outer row or empty
+%   metricName: table variable used as color metric
+%
+% Outputs:
+%   h: plot graphics handle structure
+%
+% Example:
+%   [ h ] = plotOuterSearchMap ( ax, outerMap, bestRow, 'totalDv' );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 1 || ~isgraphics(ax, 'axes')
         ax = gca;

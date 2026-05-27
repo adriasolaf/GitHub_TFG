@@ -1,10 +1,24 @@
 function [innerMap, bestRow] = runInnerNuSearchMap(config, outerCandidate, options)
-%runInnerNuSearchMap Evaluate DSM nu values and Lambert branches.
-%   This exposes the inner search space for a fixed outgoing vinf vector.
+%runInnerNuSearchMap Inner resonant DSM search map
+%   Evaluates DSM anomaly samples and Lambert period branches for one fixed
+%   outgoing v-infinity vector.
 %
-%   The returned table is intentionally branch-resolved: the same nu_DSM
-%   can appear multiple times with different revs_before/lw/lp values.
-%   This is why the GUI can show a double-valued or multi-valued curve.
+% Inputs:
+%   config: normalized ROGUI mission/search configuration structure
+%   outerCandidate: outer map row, struct, or vinf_out vector
+%   options: optional callbacks structure with cancelFcn and progressFcn
+%
+% Outputs:
+%   innerMap: table with branch-resolved DSM samples
+%   bestRow: best feasible row from innerMap
+%
+% Example:
+%   [ innerMap, bestRow ] = runInnerNuSearchMap ( config, bestOuter );
+%
+% References:
+%   [-]
+%
+%May 2026
 
     if nargin < 3
         options = struct();
@@ -23,34 +37,31 @@ function [innerMap, bestRow] = runInnerNuSearchMap(config, outerCandidate, optio
     % innerNu is a GUI-controlled display grid, not the optimizer's refine
     % grid. It shows what the inner model looks like across sampled nu.
     nuVec = config.innerNu(:)';
-    maxRows = numel(nuVec) * config.n_val * 4;
+    maxRows = numel(nuVec) * config.n_val * 2;
     rows = repmat(emptyInnerRow(), maxRows, 1);
     rowIdx = 0;
 
     % Match the branch families explored by findOptimalDSMParameters while
-    % honoring optional fixed lw/lp values from the GUI.
+    % honoring the optional fixed lp value from the GUI.
     for revs_before = (config.n_val - 1):-1:0
         mr_lambert = config.n_val - revs_before - 1;
-        lwValues = branchValues(config.fixedLw, [0, 1]);
         lpValues = branchValues(config.fixedLp, allowedLpValues(mr_lambert));
 
         if isempty(lpValues)
             continue;
         end
 
-        for lw = lwValues
-            for lp = lpValues
-                for nu = nuVec
-                    rowIdx = rowIdx + 1;
-                    if callCancel(options)
-                        rows = rows(1:rowIdx - 1);
-                        innerMap = struct2table(rows);
-                        bestRow = pickBestInner(innerMap);
-                        return;
-                    end
-                    rows(rowIdx) = evaluateInnerPoint(config, model, vinf_out, nu, revs_before, lw, lp);
-                    callProgress(options, rowIdx, maxRows, rows(rowIdx));
+        for lp = lpValues
+            for nu = nuVec
+                rowIdx = rowIdx + 1;
+                if callCancel(options)
+                    rows = rows(1:rowIdx - 1);
+                    innerMap = struct2table(rows);
+                    bestRow = pickBestInner(innerMap);
+                    return;
                 end
+                rows(rowIdx) = evaluateInnerPoint(config, model, vinf_out, nu, revs_before, lp);
+                callProgress(options, rowIdx, maxRows, rows(rowIdx));
             end
         end
     end
@@ -78,19 +89,18 @@ function values = allowedLpValues(mr_lambert)
     end
 end
 
-function row = evaluateInnerPoint(config, model, vinf_out, nu, revs_before, lw, lp)
+function row = evaluateInnerPoint(config, model, vinf_out, nu, revs_before, lp)
     % Evaluate one visible sample in the inner plot. This is not an
     % optimizer step; it is a diagnostic evaluation of a specific branch
     % and nu value.
     row = emptyInnerRow();
     row.nu = nu;
     row.revs_before = revs_before;
-    row.lw = lw;
     row.lp = lp;
 
     try
         [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTransferCost( ...
-            nu, revs_before, lw, lp, config.n_val, config.apsis_flag, config.mu_sun, true, model.orb_init, model.planets_state);
+            nu, revs_before, lp, config.n_val, config.apsis_flag, config.mu_sun, true, model.orb_init, model.planets_state);
 
         if ~isfinite(dV_DSM)
             row.failureReason = "Invalid DSM timing or Lambert branch.";
@@ -175,7 +185,7 @@ function vinf_out = extractVinfOut(outerCandidate)
 end
 
 function row = emptyInnerRow()
-    row = struct('nu', NaN, 'revs_before', NaN, 'lw', NaN, 'lp', NaN, ...
+    row = struct('nu', NaN, 'revs_before', NaN, 'lp', NaN, ...
         'totalDv', Inf, 'dV_GA1', NaN, 'dV_DSM', NaN, 'dV_GA2', NaN, ...
         'rp1', NaN, 'rp2', NaN, ...
         'vinfInX', NaN, 'vinfInY', NaN, 'vinfInZ', NaN, ...

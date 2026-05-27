@@ -1,11 +1,21 @@
 function results = runGuiSmokeChecks()
-%runGuiSmokeChecks Basic script-callable validation for ROGUI helpers.
-%   This smoke check is intentionally small. It verifies that the GUI
-%   wrapper layer can build the default scenario, evaluate a tiny outer map,
-%   expose an inner nu map, and reconstruct a selected trajectory.
+%runGuiSmokeChecks ROGUI helper smoke checks
+%   Runs a small script-callable validation of config creation, outer map
+%   evaluation, inner map evaluation, and trajectory reconstruction.
 %
-%   It is intended for developer sanity checks after refactors. It does not
-%   prove scientific optimality or replace MATLAB-side visual inspection.
+% Inputs:
+%   [-]
+%
+% Outputs:
+%   results: validation result structure
+%
+% Example:
+%   [ results ] = runGuiSmokeChecks ();
+%
+% References:
+%   [-]
+%
+%May 2026
 
     addpath(genpath(pwd));
 
@@ -52,6 +62,5 @@ function results = runGuiSmokeChecks()
     catch err
         results.ok = false;
         results.messages(end + 1) = string(err.message);
-        rethrow(err);
     end
 end

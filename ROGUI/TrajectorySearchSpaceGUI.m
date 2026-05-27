@@ -1,17 +1,21 @@
 function fig = TrajectorySearchSpaceGUI()
-%TrajectorySearchSpaceGUI Explore resonant-arc outer and inner search maps.
-%   The GUI is an orchestration layer. Numerical work is delegated to
-%   ROGUI/config, ROGUI/search, ROGUI/evaluation, and ROGUI/plot helpers.
+%TrajectorySearchSpaceGUI Resonant orbit graphical search tool
+%   ROGUI interface for outer vinf maps, inner DSM maps,
+%   and selected trajectory reconstruction.
 %
-%   Interaction model:
-%   1. Build a mission config from left-panel inputs.
-%   2. Sweep the outer vinf_out grid and plot a PCP-like cost map.
-%   3. Select an outer point by click or arrow keys.
-%   4. Build the branch-resolved inner nu_DSM map for that outer point.
-%   5. Select an inner branch sample and reconstruct the trajectory.
+% Inputs:
+%   [-]
 %
-%   GUI-facing angles are degrees. All ROGUI numerical helpers receive
-%   radians, matching the rest of the repository.
+% Outputs:
+%   fig: MATLAB uifigure handle
+%
+% Example:
+%   fig = TrajectorySearchSpaceGUI ();
+%
+% References:
+%   [-]
+%
+%May 2026
 
     addpath(genpath(pwd));
 
@@ -86,14 +90,9 @@ function fig = TrajectorySearchSpaceGUI()
         app.UI.metric.Layout.Row = 13;
         app.UI.metric.Layout.Column = 2;
 
-        addLabel(grid, 'lw branch', 14);
-        app.UI.lwMode = uidropdown(grid, 'Items', {'Auto', '0', '1'}, 'Value', 'Auto');
-        app.UI.lwMode.Layout.Row = 14;
-        app.UI.lwMode.Layout.Column = 2;
-
-        addLabel(grid, 'lp branch', 15);
+        addLabel(grid, 'lp branch', 14);
         app.UI.lpMode = uidropdown(grid, 'Items', {'Auto', '0', '1'}, 'Value', 'Auto');
-        app.UI.lpMode.Layout.Row = 15;
+        app.UI.lpMode.Layout.Row = 14;
         app.UI.lpMode.Layout.Column = 2;
 
         app.UI.runOuter = uibutton(grid, 'Text', 'Run Outer Map', 'ButtonPushedFcn', @onRunOuterMap);
@@ -416,8 +415,8 @@ function fig = TrajectorySearchSpaceGUI()
         if isequal(file, 0)
             return;
         end
-        selected = app.Results; %#ok<NASGU>
-        config = app.Config; %#ok<NASGU>
+        selected = app.Results;
+        config = app.Config;
         save(fullfile(path, file), 'selected', 'config');
         logMessage(['Exported selected case to ' fullfile(path, file)]);
     end
@@ -439,7 +438,6 @@ function fig = TrajectorySearchSpaceGUI()
         raw.innerNu = deg2rad(parseNumericVector(app.UI.nu.Value));
         raw.innerScanPoints = app.UI.innerScanPoints.Value;
         raw.innerRefineIterations = app.UI.innerRefineIterations.Value;
-        raw.fixedLw = parseBranchMode(app.UI.lwMode.Value);
         raw.fixedLp = parseBranchMode(app.UI.lpMode.Value);
         config = createSearchSpaceGuiConfig(raw);
     end
@@ -506,7 +504,6 @@ function fig = TrajectorySearchSpaceGUI()
             "GA2 dV [km/s]"
             "nu [deg]"
             "revs before DSM"
-            "lw"
             "lp"
             "rp1 [km]"
             "rp2 [km]"];
@@ -517,7 +514,6 @@ function fig = TrajectorySearchSpaceGUI()
             traj.cost.dV_GA2
             rad2deg(inner.nu)
             inner.revs_before
-            inner.lw
             inner.lp
             traj.cost.rp1
             traj.cost.rp2];

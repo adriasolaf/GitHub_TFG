@@ -1,13 +1,26 @@
 function h = plotTrajectory3D(ax, r, orbS, orbitRes, planets, orbP)
-% plotTrajectory3D Plot planet encounters, spacecraft arcs, and DSM points.
+%plotTrajectory3D Plot selected trajectory
+%   Plots planet encounters, non-resonant transfer arcs, resonant arcs, and
+%   DSM points. Positions are converted from km to AU for display.
 %
-% Usage:
-%   h = plotTrajectory3D(ax, r, orbS, orbitRes, planets, orbP)
-%   h = plotTrajectory3D(ax, dataStruct)
+% Inputs:
+%   ax: target MATLAB axes
+%   r: encounter position matrix [km] or trajectory data structure
+%   orbS: transfer arc cell array [km]
+%   orbitRes: resonant arc structure array [km]
+%   planets: planet name cell array
+%   orbP: planet orbit cell array [km]
 %
-% Position inputs are expected in km and are plotted in AU. The plotted
-% z-coordinate is visually exaggerated by zScale for inspection only; this
-% does not modify the trajectory data returned by evaluation helpers.
+% Outputs:
+%   h: plot graphics handle structure
+%
+% Example:
+%   [ h ] = plotTrajectory3D ( ax, traj );
+%
+% References:
+%   [-]
+%
+%May 2026
 
 if nargin < 1 || ~isgraphics(ax, 'axes')
     ax = gca;
