@@ -41,8 +41,8 @@ function [jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs] = MGA2_PGA2(planets,
 mu = GetBodyProps('Sun');
 days2secs = 86400;
 
-% Lambert configuration
-mr = 0; % No multi-revolutions
+% Lambert configuration 
+mr = 0; % No multi-revolutions   
 lp = 0; % Short-period solutions
 
 % Auxiliary magnitudes
@@ -78,6 +78,7 @@ end
 if flagN ~= 0 || flagM ~= 0
     return;
 end
+
 
 % Detect resonant legs: same planet at consecutive encounters and
 % tofs(i) matches the N:M resonant period (M * T_p) within tolerance.

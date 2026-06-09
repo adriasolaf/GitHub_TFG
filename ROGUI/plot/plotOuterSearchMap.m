@@ -1,4 +1,4 @@
-function h = plotOuterSearchMap(ax, outerMap, selectedPoint, metricName)
+function h = plotOuterSearchMap(ax, outerMap, selectedPoint, metricName, refinedPoint)
 %plotOuterSearchMap Plot outer search map
 %   Plots the outer ROGUI search table over theta, phi, and vmag. Angles in
 %   the table are radians and are displayed in degrees.
@@ -32,12 +32,15 @@ function h = plotOuterSearchMap(ax, outerMap, selectedPoint, metricName)
     if nargin < 4 || isempty(metricName)
         metricName = 'totalDv';
     end
+    if nargin < 5
+        refinedPoint = [];
+    end
 
     cla(ax);
     hold(ax, 'on');
     box(ax, 'on');
     grid(ax, 'on');
-    h = struct('map', gobjects(0), 'selected', gobjects(0), 'colorbar', gobjects(0));
+    h = struct('map', gobjects(0), 'selected', gobjects(0), 'refined', gobjects(0), 'colorbar', gobjects(0));
 
     if isempty(outerMap) || ~istable(outerMap) || ~all(ismember({'theta','phi','vmag'}, outerMap.Properties.VariableNames))
         showEmptyAxes(ax, 'Outer search map unavailable');
@@ -101,7 +104,27 @@ function h = plotOuterSearchMap(ax, outerMap, selectedPoint, metricName)
         end
     end
 
+    
+    refMarker = refinedMarker(refinedPoint);
+    if ~isempty(refMarker)
+        if is3d
+            h.refined = plot3(ax, refMarker(1), refMarker(2), refMarker(3), 'p', 'MarkerFaceColor', [0 0.7 0], 'MarkerEdgeColor', 'k', 'MarkerSize', 14, 'LineWidth', 1);
+        else
+            h.refined = plot(ax, refMarker(1), refMarker(3), 'p', 'MarkerFaceColor', [0 0.7 0], 'MarkerEdgeColor', 'k', 'MarkerSize', 14, 'LineWidth', 1);
+        end
+    end
+
     hold(ax, 'off');
+end
+
+function marker = refinedMarker(refinedPoint)
+    marker = [];
+    if isempty(refinedPoint)
+        return;
+    end
+    if isstruct(refinedPoint) && isfield(refinedPoint, 'theta')
+        marker = [rad2deg(refinedPoint.theta), rad2deg(refinedPoint.phi), refinedPoint.vmag];
+    end
 end
 
 function [X, Y, Z] = buildGrid(x, y, values)

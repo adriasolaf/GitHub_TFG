@@ -8,7 +8,7 @@ function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
 %   a: lower bound of the search interval
 %   b: upper bound of the search interval
 %   N_points: number of grid points for the scan
-%   N_refine: number of iterations for refinement / 6
+%   N_refine: number of iterations for refinement
 %
 % Outputs:
 %   x_opt: refined estimate of the minimum location
@@ -50,7 +50,7 @@ function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
     end
 
     %Refinement within the cell
-    x_fine = linspace(ref_lo, ref_hi, N_refine * 6);
+    x_fine = linspace(ref_lo, ref_hi, N_refine);
     f_fine = arrayfun(f, x_fine);
     [min_val, idx_fine] = min(f_fine);
     if ~isfinite(min_val)

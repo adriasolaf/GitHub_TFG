@@ -1,4 +1,4 @@
-function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName)
+function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName, refinedPoint)
 %plotInnerSearchMap Plot inner DSM search map
 %   Plots branch-resolved DSM anomaly samples for one selected outgoing
 %   v-infinity vector. nu is displayed in degrees.
@@ -32,12 +32,15 @@ function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName)
     if nargin < 4 || isempty(metricName)
         metricName = 'totalDv';
     end
+    if nargin < 5
+        refinedPoint = [];
+    end
 
     cla(ax);
     hold(ax, 'on');
     box(ax, 'on');
     grid(ax, 'on');
-    h = struct('points', gobjects(0), 'selected', gobjects(0), 'colorbar', gobjects(0));
+    h = struct('points', gobjects(0), 'selected', gobjects(0), 'refined', gobjects(0), 'colorbar', gobjects(0));
 
     if isempty(innerMap) || ~istable(innerMap) || ~any(strcmp('nu', innerMap.Properties.VariableNames))
         showEmptyAxes(ax, 'Inner search map unavailable');
@@ -87,7 +90,29 @@ function h = plotInnerSearchMap(ax, innerMap, selectedPoint, metricName)
         h.selected(2) = plot(ax, marker(1), marker(2), 'rx', 'LineWidth', 2.2, 'MarkerSize', 12);
     end
 
+    refMarker = refinedMarker(refinedPoint, metricName);
+    if ~isempty(refMarker)
+        h.refined = plot(ax, refMarker(1), refMarker(2), 'p', 'MarkerFaceColor', [0 0.7 0], 'MarkerEdgeColor', 'k', 'MarkerSize', 14, 'LineWidth', 1);
+    end
+
     hold(ax, 'off');
+end
+
+function marker = refinedMarker(refinedPoint, metricName)
+    marker = [];
+    if isempty(refinedPoint)
+        return;
+    end
+    if isstruct(refinedPoint) && isfield(refinedPoint, 'nu')
+        if isfield(refinedPoint, metricName)
+            yval = refinedPoint.(metricName);
+        elseif isfield(refinedPoint, 'totalDv')
+            yval = refinedPoint.totalDv;
+        else
+            return;
+        end
+        marker = [rad2deg(refinedPoint.nu), yval];
+    end
 end
 
 function marker = selectedMarker(selectedPoint, innerMap, metricName)

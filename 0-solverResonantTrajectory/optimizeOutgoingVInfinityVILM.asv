@@ -158,7 +158,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
             n_jit = max(0, max_informed - n_top);
         end
 
-        vmag_c = linspace(vmag_min, vmag_max, 3);
+        vmag_c  = linspace(vmag_min, vmag_max, 3);
         theta_c = linspace(rad2deg(theta_ref)-180, rad2deg(theta_ref)+180, 6);
         if in_plane
             phi_c = 0;
@@ -211,9 +211,12 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
         end
         init_pop = pop0;
 
-        [bestind, ~] = aga(opts_aga, init_pop, 1e-5, ng_ga, Nctrl, unifun, fitfun, mutfun, repfun, ranfun, []);
+        % init_pop = np_ga;
 
-        % Local Refinment
+        [bestind, ~] = aga(opts_aga, init_pop, 1e-5, ng_ga, Nctrl, ...
+            unifun, fitfun, mutfun, repfun, ranfun, []);
+
+        % Local Refinment Optional
         if strcmpi(opts.algorithm,'ga+fmin')
             lp_fix = round(bestind(5));
             obj = @(x) aga_fun_cost([x, lp_fix], scn, ranges);
@@ -223,7 +226,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
             bestind = [x_opt, lp_fix];
         end
 
-        % Reconstruct breakdown from the GA chromosome itself
+        % Reconstruct breakdown from the GA chromosome itself (no search_nu)
         [~, dec] = aga_fun_decode(bestind, ranges);
         best_vinf_out = dec.vinf_out;
         [~, dbg] = aga_fun_cost(bestind, scn, ranges);
@@ -237,7 +240,10 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
         rp_GA2 = dbg.rp2;
         best_vinf_o_n = norm(best_vinf_out);
 
-        vilm_arc = struct('vinf_out',best_vinf_out,'body',body,'jd0',jd0, 'T_p',T_p,'N',N,'M',M,'apsis_flag',apsis_flag,'mu_sun',mu_sun, 'search_nu',search_nu,'vinfi_req',vinfi_req, 'vinfo_req',vinfo_req,'res_flag',res_flag);
+        vilm_arc = struct('vinf_out',best_vinf_out,'body',body,'jd0',jd0, ...
+            'T_p',T_p,'N',N,'M',M,'apsis_flag',apsis_flag,'mu_sun',mu_sun, ...
+            'search_nu',search_nu,'vinfi_req',vinfi_req, ...
+            'vinfo_req',vinfo_req,'res_flag',res_flag);
         return;
     end
 

@@ -3,37 +3,44 @@
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'AGA')));
 
 % MGA Sequence Galileo (E-V-E-E-J), launch Oct 18 1989
-% planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
-% jd2k0 = -3727; % Oct 18, 1989
+planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
+jd2k0 = -3727; % Oct 18, 1989
 
 % JUICE
-planets = {'Earth', 'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
-jd2k0 = 8187;
+% planets = {'Earth', 'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
+% jd2k0 = 8187;
 
 % planets = {'Earth', 'Earth', 'Mars', 'Earth', 'Earth', 'Jupiter'};
 % jd2k0 = 8493;
 
 
 
-% N = [NaN,   NaN, 1,   NaN];
-% M = [NaN,   NaN, 2,   NaN];
+N = [NaN,   NaN, 1,   NaN];
+M = [NaN,   NaN, 2,   NaN];
 
-N = [1,   NaN, NaN, 1,   NaN];
-M = [1,   NaN, NaN, 2,   NaN];
+% N = [1,   NaN, NaN, 1,   NaN];
+% M = [1,   NaN, NaN, 2,   NaN];
+
+% % Lambert multi-revolution config per leg (only used on non-VILM legs) %CC
+% %   mr: number of revolutions (0 = single-rev)  %CC
+% %   lp: 0 = short-period, 1 = long-period %CC
+% %        E->E1  E->Mars  Mars->E  E->E2  E->J
+% mr =     [0,    1,       1,       0,     0  ]; % Earth->Mars & Mars->Earth multirev %CC
+% lp =     [0,    0,       1,       0,     0  ]; % E->Mars long, Mars->E short %CC
 
 mu = GetBodyProps('Sun');
 body = 'Earth';
-% jd_earth1 = jd2k0 + 115 + 301;
-jd_earth1 = jd2k0 + 175 + 332;
+jd_earth1 = jd2k0 + 115 + 301;
+% jd_earth1 = jd2k0 + 175 + 332;
 % jd_earth1 = jd2k0 + 823 + 571;
 % [sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd2k0);
-% T_p0 = 2*pi*sqrt(sma_planet^3 / mu); % Earth osrbital period [s]
+% T_p0 = 2*pi*sqrt(sma_planet^3 / mu); % Earth orbital period [s]
 [sma_planet, ~, ~, ~, ~, ~] = GetBodyKEP_SSDG(body, jd_earth1);
 T_p = 2*pi*sqrt(sma_planet^3 / mu); % Earth orbital period [s]
 
-% tofs = [115, 301, T_p*M(3)/86400, 1094];
+tofs = [115, 301, T_p*M(3)/86400, 1094];
 % tofs = [364, 823, 571, T_p*M(4)/86400, 1066]; % E->V, V->E1, E1->E2 (VILM), E2->J
-tofs = [367, 175, 332, T_p*M(4)/86400, 1185];
+% tofs = [367, 175, 332, T_p*M(4)/86400, 1185];
 
 
 % Get planet strings

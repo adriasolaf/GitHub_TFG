@@ -148,9 +148,9 @@ for g=1:ng
         history(g) = fi(1); %#ok
     end
     
-    % Check if reached target fitness or max generations 
+    % Check if reached target fitness or max generations
     if fi(1)<=goal || g>=ng % Target achieved
-        
+
         % Save last iteration data
         bestind = pop{1}; % Save best individual
         bestfit = fi(1); % Save fitness level of last best individual

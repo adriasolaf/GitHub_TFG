@@ -1,4 +1,4 @@
-function [ mutant ] = aga_fun_mutate ( ind, ~, ranges, mutationStep )
+function [ mutant ] = aga_fun_mutate ( ind, fit, ranges, mutationStep )
 %aga_fun_mutate Mutate resonant AGA chromosome
 %   Perturbs continuous genes with Gaussian noise and occasionally flips
 %   the binary Lambert long-period flag.
@@ -32,8 +32,15 @@ function [ mutant ] = aga_fun_mutate ( ind, ~, ranges, mutationStep )
     % Start from a valid chromosome so mutation never propagates bad shape.
     mutant = aga_fun_decode(ind, ranges);
 
+    % Adaptive sigma: low fit mutate finely otherwise mutate with full step
+    if nargin >= 2 && ~isempty(fit) && isfinite(fit)
+        sigma_scale = min(1.0, max(1e-4, fit^1.5));
+    else
+        sigma_scale = 1.0;
+    end
+
     % Perturb [vinfo, theta, phi, nu] with caller-controlled step sizes.
-    mutant(1:4) = mutant(1:4) + mutationStep(1:4) .* randn(1, 4);
+    mutant(1:4) = mutant(1:4) + sigma_scale * mutationStep(1:4) .* randn(1, 4);
 
     % Flip lp occasionally to preserve exploration of both Lambert branches.
     if rand() < 0.15

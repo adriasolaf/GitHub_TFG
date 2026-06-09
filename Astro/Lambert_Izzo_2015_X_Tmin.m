@@ -237,3 +237,6 @@ while err > tol
 end
 end
 
+function n = norm3(v)
+    n = sqrt(v(1)*v(1) + v(2)*v(2) + v(3)*v(3));
+end

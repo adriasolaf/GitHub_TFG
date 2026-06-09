@@ -380,6 +380,7 @@ function fig = TrajectorySearchSpaceGUI()
             [~, idx] = min(dx.^2 + dy.^2);
         end
 
+        % A user click on the outer map means: I want a different vinf_out.
         % Discard the refined overlay so trajectory and inner map fall back
         % to the clicked discrete point.
         app.Results.refinedOuter = [];
@@ -631,7 +632,8 @@ end
 
 function results = initialResults()
     results = struct('outerMap', [], 'innerMap', [], 'selectedOuter', [], ...
-        'selectedInner', [], 'trajectory', [], 'refinedOuter', [], 'refinedInner', []);
+        'selectedInner', [], 'trajectory', [], ...
+        'refinedOuter', [], 'refinedInner', []);
 end
 
 function addLabel(parent, text, row)
