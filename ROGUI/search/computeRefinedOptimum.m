@@ -15,8 +15,8 @@ function [outerSel, innerSel] = computeRefinedOptimum(config, bestOuter)
 % References:
 %   [-]
 %
+% Adria Sola Foixench
 % May 2026
-% Adrià Salà
 
     outerSel = [];
     innerSel = [];
