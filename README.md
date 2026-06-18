@@ -15,21 +15,19 @@ TEST_MGA_Plot.m
 0-costFunctions/
 0-searchAlgorithms/
 0-utilities/
-1-graphs/
 Astro/
 AGA/
 ROGUI/
 ```
 
 - `MGA2_PGA2.m`: main trajectory API for the patched-conics MGA/VILM workflow.
-- `TEST_MGA_Plot.m`: baseline Galileo-style computation and plotting script.
+- `TEST_MGA_Plot.m`: baseline JUICE-style computation and plotting script.
 - `0-coreResonantTrajectory/`: single DSM transfer construction and cost logic.
 - `0-solverDSM/`: inner DSM optimizer over anomaly, revolution split, and Lambert branch.
 - `0-solverResonantTrajectory/`: outer resonant optimizer over outgoing `v_infinity`.
 - `0-costFunctions/`: resonant total-cost wrappers.
-- `0-searchAlgorithms/`: grid scans, scan/refine, and ternary search helpers.
+- `0-searchAlgorithms/`: grid scans, scan/refine.
 - `0-utilities/`: trajectory reconstruction utilities.
-- `1-graphs/`: generated plots and figures.
 - `Astro/`: astrodynamics helpers, body states, Lambert solver, element/state conversions, and flyby utilities.
 - `AGA/`: Genetic Algorithm optimizer for resonant-branch search.
 - `ROGUI/`: Resonant Orbit GUI and its script-callable support layer.
@@ -41,18 +39,6 @@ Run the baseline script:
 ```matlab
 addpath(genpath(pwd))
 TEST_MGA_Plot
-```
-
-Run the main API directly:
-
-```matlab
-planets = {'Earth', 'Venus', 'Earth', 'Earth', 'Jupiter'};
-jd2k0 = -3727;
-tofs = [115, 301, 730, 1094];
-N = 1;
-M = 2;
-
-[jd2k,r,v,vd,va,rpga,dvga,dvdsm,vilm_arcs] = MGA2_PGA2(planets,jd2k0,tofs,N,M);
 ```
 
 Launch the GUI:
@@ -145,7 +131,7 @@ Default GUI grids are:
 - `|vinf|`: `1:0.5:10` km/s.
 - `theta`: `-180:10:180` deg.
 - `phi`: `0` deg.
-- `nu_DSM`: `0:3:360` deg.
+- `nu_DSM`: `0:3.025:360` deg.
 
 The inner branch plot uses the selected color metric as both its y-value and color scale. The trajectory plot displays positions in AU with equal x/y scale and visual-only `10x` z exaggeration.
 
@@ -175,5 +161,4 @@ For scientific changes, compare scalar outputs such as total delta-v, `dvga`, `d
 
 ## Documentation
 
-- `AGENTS.md`: contributor guidelines.
 - `ROGUI/README.md`: ROGUI developer guide.

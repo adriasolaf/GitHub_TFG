@@ -1,7 +1,6 @@
 function [x_opt, x_vec, f_vec] = scan_and_refine_1d(f, a, b, N_points, N_refine)
 %   1D minimization: first performs a grid scan to locate
-%   approximately the global minimum, then refines around it using ternary
-%   search.
+%   approximately the global minimum, then refines around it.
 %
 % Inputs:
 %   f: function handle @(x)
