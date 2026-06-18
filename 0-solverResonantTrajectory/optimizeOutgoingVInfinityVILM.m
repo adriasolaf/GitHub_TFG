@@ -63,8 +63,8 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
     vinfon_required = norm(vinfo_req);
 
     % Anti-trivial floors: 0.5 km/s absolute, 1.0 km/s for 1:1 resonances
-    % N==M is the only case where the co-orbital trivial vinf~=0 solution
-    % is geometrically admissible and must be excluded explicitly
+    % N==M is the only case where the co-orbital trivial solution
+    % is geometrically admissible and must be excluded
     if N == M
         v_floor_abs = 1.0;
         v_floor_frac = 0.3;
