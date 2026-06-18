@@ -45,7 +45,7 @@ AU = 1.49597871E8; % Astronomical Unit (AU) [km]
 n = 100; % Orbit resolution
 
 %% Compute Lambert MGA
-opts = struct('N_mag',8, 'N_theta',12, 'N_phi',5, 'N_points_nu',100, 'N_refine_nu',120,'algorithm','grid+fmin');
+opts = struct('N_mag',8, 'N_theta',12, 'N_phi',1, 'N_points_nu',100, 'N_refine_nu',120,'algorithm','grid+fmin');
 
 % Multi-Gravity Assist
 [ jd2k, r, v, vd, va, rpga, dvga, dvdsm, vilm_arcs ] = MGA2_PGA2 ( planets, jd2k0, tofs, N, M, opts);

@@ -33,8 +33,7 @@ function [ bestind, bestfit, nite, lastpop, lastfit, history ] = aga ( ...
 %                   The rest are descendants
 %       N(4)        na: number of parents. The descendants are chosen
 %                   among the na best individuals
-%                   The rest of individuals (ie: nn=length(pop)-ne+nm+nd)
-%                   are newcomers, randomly chosen
+%                   
 % 
 %   If there are less than nm-1 non-identical individuals, population is 
 %   considered degenerate and iterations stop

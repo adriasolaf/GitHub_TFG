@@ -14,7 +14,7 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 %   M: number of body revolutions
 %   apsis_flag: DSM reference apsis (1 = apoapsis, 0 = periapsis)
 %   mu_sun: central body gravitational parameter [km^3/s^2]
-%   mu_planet: planetary body gravitational parameter [km^3/s^2]
+%   mu_planet: secondary body gravitational parameter [km^3/s^2]
 %   vmr_safety: minimum safe flyby radius with safety margin [km]
 %   res_flag: resonance flag:
 %               1 = launch leg (dV_GA1 = 0)
@@ -45,9 +45,6 @@ function [dV_total, dV_GA1, dV_DSM, dV_GA2, vinf_in, va, r_m, v_m_minus, v_m_plu
 %
 % Adria Sola Foixench
 % April 2026
-
-    % Track how many times the cost is evaluated
-    costEvalCounter('inc');
 
     % Initialize outputs
     dV_total = Inf;

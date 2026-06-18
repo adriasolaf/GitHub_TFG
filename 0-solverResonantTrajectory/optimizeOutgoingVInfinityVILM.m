@@ -150,6 +150,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
 
         opts_aga = struct('ninfo',0,'label',0,'dopar',0,'nhist',1);
 
+        % Smart seeding
         n_top = max(2, round(0.15 * np_ga));
         n_jit = max(2, round(0.15 * np_ga));
         max_informed = floor(0.40 * np_ga);
@@ -223,7 +224,7 @@ function [best_vinf_out, dV_total, best_dV_GA1, best_dV_DSM, best_dV_GA2, best_v
             bestind = [x_opt, lp_fix];
         end
 
-        % Reconstruct breakdown from the GA chromosome itself
+        % Reconstruct breakdown from the GA chromosome
         [~, dec] = aga_fun_decode(bestind, ranges);
         best_vinf_out = dec.vinf_out;
         [~, dbg] = aga_fun_cost(bestind, scn, ranges);

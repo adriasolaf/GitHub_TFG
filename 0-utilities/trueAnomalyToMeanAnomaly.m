@@ -1,5 +1,5 @@
 function M = trueAnomalyToMeanAnomaly(nu, ecc)
-%trueAnomalyToMeanAnomaly Convert elliptic true anomaly to mean anomaly.
+% trueAnomalyToMeanAnomaly Convert elliptic true anomaly to mean anomaly.
 %
 % Inputs:
 %   nu: true anomaly [rad]

@@ -13,6 +13,8 @@ function [dV_DSM, r_m, v_m_minus, v_m_plus, vinf_in, va] = computeSingleDSMTrans
 %   mu_sun: central body gravitational parameter [km^3/s^2]
 %   full_output_flag: true = compute all output vectors,
 %                     false = compute only dV_DSM
+%   orb_init: struct with initial spacecraft orbit parameters
+%   planets_state: struct with arrival planet state and constraints
 %
 % Outputs:
 %   dV_DSM: DSM Delta-V magnitude [km/s].

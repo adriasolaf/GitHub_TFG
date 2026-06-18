@@ -1,4 +1,4 @@
-function [ r, v ] = ICF2Arc ( r1, v1, r2, v2, mu, n )
+function [ r, v ] = ICF2Arc ( r1, v1, r2, v2, mu, n)
 %ICF2ARC Get body's orbit range
 %   Returns the position and velocity of a body throughout a partial orbit
 %
